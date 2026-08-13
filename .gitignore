@@ -13,6 +13,7 @@ dist/
 build/
 backend/dist/
 frontend/dist/
+target/
 
 # Runtime data — JSON project storage, uploaded book text, generated images
 data/

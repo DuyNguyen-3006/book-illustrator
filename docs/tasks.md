@@ -20,8 +20,9 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       `DECISIONS.md`
 
 ## Milestone 2 — 1. Backend skeleton
-- [ ] #5 `[BE]` Project scaffold (Java + Spring Boot, Clean Architecture layers),
-      `docker-compose.yml` (app + Postgres), `.env.example`, `./start.sh`
+- [x] #5 `[BE]` Project scaffold (Java + Spring Boot, Clean Architecture layers),
+      `docker-compose.yml` (app + Postgres), `backend/.env.example` +
+      `frontend/.env.example` (separate per project, no shared root `.env`), `./start.sh`
 - [ ] #6 `[BE]` Storage layer: Postgres schema (users, projects, pipeline
       status/step_state, characters, chapters) + migration tool; locking via
       `SELECT ... FOR UPDATE` or unique constraint on `(project_id, step_id)`

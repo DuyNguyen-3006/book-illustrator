@@ -71,6 +71,16 @@ use case. Concretely for this project:
 - `controller` — maps HTTP requests to use-case calls, builds the response envelope
   (`.claude/skills/backend-rules/SKILL.md` §1). No business logic here.
 
+**DTO placement — two different kinds, two different layers, don't mix them:**
+- `controller/dto` — the HTTP envelope (`ApiResponse<T>`, `status`/`data`/`error`, per
+  `backend-rules` §1). This is transport shape, not a business concept — `application`
+  must never know it exists, so it can't move there or anywhere else outside `controller`.
+- `application` — each use case gets its own plain-Java Command/Result model (e.g.
+  `CreateProjectCommand`, `CreateProjectResult`), with zero HTTP/JSON concepts. `controller`
+  calls the use case with a Command, gets a Result back, and wraps *that* in
+  `ApiResponse.success(result)` — the wrapping happens in `controller`, never inside the
+  use case.
+
 **Enforce this with a real test, don't just describe it in prose:** an ArchUnit rule (or
 equivalent) asserting `domain` has zero dependencies on `infrastructure`/`controller`/
 Spring/JPA is cheap to write and is the actual proof the layering isn't just folder names
@@ -231,7 +241,8 @@ Where a design-skill suggestion conflicts with `frontend-rules`, the project rul
 - [ ] `TESTING.md` — FE+BE strategy plus a **real** test report (not invented).
 - [ ] AI artifacts committed: this file, `.claude/`, `docs/tasks.md`, any saved prompts.
 - [ ] `./start.sh` and `./test.sh` (or `make up`/`make test`) — one command each.
-- [ ] `.env.example` — required env vars, no real secrets.
+- [ ] `backend/.env.example` and `frontend/.env.example` — required env vars per
+      project, no real secrets. No shared root-level `.env` — each project owns its own.
 - [ ] Git history — small, incremental, real commit messages, committed as you go.
 
 ---
