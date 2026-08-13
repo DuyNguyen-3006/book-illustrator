@@ -1,0 +1,31 @@
+# Secrets — never commit real env values
+.env
+.env.local
+*.local
+
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build output
+dist/
+build/
+backend/dist/
+frontend/dist/
+
+# Runtime data — JSON project storage, uploaded book text, generated images
+data/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
