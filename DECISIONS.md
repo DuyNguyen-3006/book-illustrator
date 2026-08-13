@@ -35,6 +35,31 @@ Example of the expected shape (from the assessment brief itself):
 <!-- DRAFT below — written by Claude from the actual conversation, not invented. Read it,
      rewrite it in your own voice/details before this counts as a real entry. -->
 
+## Locking: a conditional UPDATE, not a held SELECT ... FOR UPDATE
+
+For the duplicate-call guard (spec §4.3 — refresh/second-tab/double-click must not fire
+Gemini twice), the obvious-sounding option is `SELECT ... FOR UPDATE` around the whole
+step. I almost did that. Claude flagged the actual problem: that holds a Postgres
+transaction — and a pooled connection — open for the entire 10-30s+ Gemini call, which is
+a bad trade for a lock that only needs to be held for a status flip. Went with a single
+atomic `UPDATE projects SET step_state='locked' WHERE ... AND step_state='pending'`
+instead — acquire and release are instant, the row's `step_state` itself carries the lock
+across the actual API call. Same conditional-UPDATE mechanism also handles reclaiming an
+expired lock (TTL 120s — chosen to exceed the slowest expected single Gemini call, per
+`pipeline-rules` §2) in the same statement. Cost: the lock logic lives entirely in one raw
+SQL statement instead of ORM-managed locking, so it needs its own concurrency test rather
+than trusting an annotation.
+
+## Testing the lock against the real docker-compose Postgres, not Testcontainers
+
+Claude's recommendation was Testcontainers — spins up an isolated Postgres per test run,
+no manual setup, works in CI. I went the other way: point the test at the same Postgres
+`docker-compose` already starts, since I'm running this by hand anyway and didn't want a
+second test-only Postgres dependency on top of the real one. Cost, which I'm accepting
+knowingly: `mvn test` now silently fails if `docker compose up` isn't running first — no
+CI safety net, and there's a small risk of the test's cleanup step leaving rows behind if
+a test crashes mid-run. Verified manually after the first run that cleanup left 0 rows.
+
 ## Backend: Java instead of Node.js
 
 The initial setup (done with Claude, before I'd read the assessment stack rule closely)

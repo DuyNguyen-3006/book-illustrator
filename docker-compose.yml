@@ -24,6 +24,10 @@ services:
         condition: service_healthy
     env_file:
       - ./backend/.env
+    environment:
+      # Overrides the .env default of localhost — inside the compose network the
+      # Postgres container is reachable by service name, not localhost.
+      DB_HOST: postgres
     ports:
       - "8080:8080"
 
