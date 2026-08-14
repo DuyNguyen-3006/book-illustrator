@@ -64,7 +64,7 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 - [ ] #25 `[FE]` Sign out
 
 ## Milestone 7 — 6. Tests and docs
-- [ ] #26 `[BE]` Backend tests: step ordering, progress, retry (per backend-rules
+- [x] #26 `[BE]` Backend tests: step ordering, progress, retry (per backend-rules
       skill §3)
 - [ ] #27 `[FE]` Frontend tests: a couple of components' loading/error/empty states
 - [ ] #28 `[DOCS]` `TESTING.md`: strategy + a real test-run report
