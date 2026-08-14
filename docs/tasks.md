@@ -11,12 +11,12 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 `[ ]` open · `[~]` in progress (max 1 at a time) · `[x]` closed
 
 ## Milestone 1 — 0. Groundwork (do first, before any app code)
-- [ ] #1 `[SETUP]` Run `Book_illustration.ipynb` in Colab yourself, steps 1–5 only (note
+- [x] #1 `[SETUP]` Run `Book_illustration.ipynb` in Colab yourself, steps 1–5 only (note
       model IDs, request/response shape per step, context chaining, structured output)
-- [ ] #2 `[SETUP]` Get `app-demo.html` from the assessment package into
+- [x] #2 `[SETUP]` Get `app-demo.html` from the assessment package into
       `docs/app-demo.html`; click through every screen and state
-- [ ] #3 `[SETUP]` Get a Gemini API key; check free-tier rate limits for the image model
-- [ ] #4 `[SETUP]` Fill `CLAUDE.md` §1 stack table's Gemini model rows; log the choice in
+- [x] #3 `[SETUP]` Get a Gemini API key; check free-tier rate limits for the image model
+- [x] #4 `[SETUP]` Fill `CLAUDE.md` §1 stack table's Gemini model rows; log the choice in
       `DECISIONS.md`
 
 ## Milestone 2 — 1. Backend skeleton
@@ -92,6 +92,10 @@ Backend gaps found while planning the frontend — these block FE screens, so th
       timestamps
 
 ---
+
+> Open on purpose: #16 Portraits and #18 Illustrations. Code and unit tests exist and
+> the request shape is validated by the API, but the account's image quota is zero, so no
+> image call has ever completed. See TESTING.md and DECISIONS.md §15.
 
 ## Quick counts
 - `[BE]` 19 · `[FE]` 8 · `[DOCS]` 3 · `[SETUP]` 6 · `[QA]` 2 (38 total)
