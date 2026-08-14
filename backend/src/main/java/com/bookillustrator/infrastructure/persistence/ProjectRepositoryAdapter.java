@@ -6,6 +6,7 @@ import com.bookillustrator.infrastructure.persistence.repository.ProjectJpaRepos
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 @Component
 public class ProjectRepositoryAdapter implements ProjectRepository {
@@ -24,5 +25,10 @@ public class ProjectRepositoryAdapter implements ProjectRepository {
     @Override
     public List<Project> findByUserId(long userId) {
         return jpaRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Override
+    public Optional<Project> findById(long id) {
+        return jpaRepository.findById(id);
     }
 }

@@ -75,6 +75,11 @@ class CreateProjectUseCaseTest {
         }
 
         @Override
+        public String read(String path) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
+
+        @Override
         public void delete(String path) {
             deleted.add(path);
         }
@@ -96,12 +101,22 @@ class CreateProjectUseCaseTest {
         public List<Project> findByUserId(long userId) {
             throw new UnsupportedOperationException("not needed for this test");
         }
+
+        @Override
+        public java.util.Optional<Project> findById(long id) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 
     private static class FailingProjectRepository implements ProjectRepository {
         @Override
         public Project create(long userId, String title, String bookTextPath) {
             throw new RuntimeException("db down");
+        }
+
+        @Override
+        public java.util.Optional<Project> findById(long id) {
+            throw new UnsupportedOperationException("not needed for this test");
         }
 
         @Override

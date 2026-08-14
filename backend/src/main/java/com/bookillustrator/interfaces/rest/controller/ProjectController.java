@@ -1,14 +1,17 @@
 package com.bookillustrator.interfaces.rest.controller;
 
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
+import com.bookillustrator.application.usecase.project.GetProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectsUseCase;
 import com.bookillustrator.interfaces.rest.response.ApiResponse;
+import com.bookillustrator.interfaces.rest.response.ProjectDetailResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectSummaryResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,10 +31,13 @@ public class ProjectController {
 
     private final CreateProjectUseCase createProjectUseCase;
     private final GetProjectsUseCase getProjectsUseCase;
+    private final GetProjectUseCase getProjectUseCase;
 
-    public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase) {
+    public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase,
+                              GetProjectUseCase getProjectUseCase) {
         this.createProjectUseCase = createProjectUseCase;
         this.getProjectsUseCase = getProjectsUseCase;
+        this.getProjectUseCase = getProjectUseCase;
     }
 
     @PostMapping
@@ -72,6 +78,19 @@ public class ProjectController {
                 .map(ProjectSummaryResponse::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(projects));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProjectDetailResponse>> detail(
+            @PathVariable("id") long id, HttpSession session) {
+        Long userId = authenticatedUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
+                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+        }
+
+        GetProjectUseCase.Result result = getProjectUseCase.execute(id, userId);
+        return ResponseEntity.ok(ApiResponse.success(ProjectDetailResponse.from(result)));
     }
 
     private static Long authenticatedUserId(HttpSession session) {

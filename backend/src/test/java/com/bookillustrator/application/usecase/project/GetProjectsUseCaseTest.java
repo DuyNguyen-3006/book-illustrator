@@ -74,5 +74,10 @@ class GetProjectsUseCaseTest {
             }
             return result;
         }
+
+        @Override
+        public java.util.Optional<Project> findById(long id) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 }

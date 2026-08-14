@@ -8,6 +8,8 @@ public interface BookTextStorage {
 
     String save(String bookText);
 
+    String read(String path);
+
     /** Best-effort cleanup — e.g. when the DB write that would reference this path fails. */
     void delete(String path);
 }

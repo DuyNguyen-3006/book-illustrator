@@ -37,6 +37,15 @@ public class LocalFileStorage implements BookTextStorage {
     }
 
     @Override
+    public String read(String path) {
+        try {
+            return Files.readString(Path.of(path), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("could not read book text from " + path, e);
+        }
+    }
+
+    @Override
     public void delete(String path) {
         try {
             Files.deleteIfExists(Path.of(path));

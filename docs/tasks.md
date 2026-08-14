@@ -31,8 +31,8 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 
 ## Milestone 3 — 2. Projects
 - [x] #8 `[BE]` Create project: title + book text (paste or `.txt` upload), validation
-- [~] #9 `[BE]` List projects for a user: title, created date, status, per-step progress
-- [ ] #10 `[BE]` Project detail read model: current step, all step outputs so far, book
+- [x] #9 `[BE]` List projects for a user: title, created date, status, per-step progress
+- [x] #10 `[BE]` Project detail read model: current step, all step outputs so far, book
       text
 
 ## Milestone 4 — 3. Pipeline state machine and concurrency (before real Gemini calls)
