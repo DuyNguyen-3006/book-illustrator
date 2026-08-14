@@ -8,6 +8,7 @@ import { ChapterCard } from "../components/ChapterCard";
 import { CharacterCard } from "../components/CharacterCard";
 import { PipelineStepper } from "../components/PipelineStepper";
 import { RunStepPanel } from "../components/RunStepPanel";
+import { StepStatusBanner } from "../components/StepStatusBanner";
 import { useProject } from "../hooks/useProject";
 
 export function ProjectDetailPage() {
@@ -43,6 +44,8 @@ export function ProjectDetailPage() {
         currentStep={project.currentStep}
         stepState={project.stepState}
       />
+
+      <StepStatusBanner project={project} />
 
       <RunStepPanel project={project} />
 
