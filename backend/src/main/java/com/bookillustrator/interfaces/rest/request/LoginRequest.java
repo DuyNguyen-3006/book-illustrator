@@ -1,4 +1,4 @@
-package com.bookillustrator.controller.dto;
+package com.bookillustrator.interfaces.rest.request;
 
 public record LoginRequest(String email, String name) {
 }

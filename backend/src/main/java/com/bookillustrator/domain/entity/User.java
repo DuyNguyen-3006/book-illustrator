@@ -1,4 +1,4 @@
-package com.bookillustrator.infrastructure.persistence;
+package com.bookillustrator.domain.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,9 +10,13 @@ import jakarta.persistence.Table;
 
 import java.time.OffsetDateTime;
 
+/**
+ * A registered user — the domain entity and the JPA-persisted row are the same class
+ * per the user's explicit call, amending docs/architecture.md §4/§9. See DECISIONS.md.
+ */
 @Entity
 @Table(name = "users")
-public class UserEntity {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,11 +31,11 @@ public class UserEntity {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
-    protected UserEntity() {
+    protected User() {
         // JPA
     }
 
-    public UserEntity(String email, String name) {
+    public User(String email, String name) {
         this.email = email;
         this.name = name;
     }

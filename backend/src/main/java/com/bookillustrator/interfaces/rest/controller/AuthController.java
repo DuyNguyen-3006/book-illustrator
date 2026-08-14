@@ -1,9 +1,9 @@
-package com.bookillustrator.controller;
+package com.bookillustrator.interfaces.rest.controller;
 
-import com.bookillustrator.application.LoginUseCase;
-import com.bookillustrator.controller.dto.ApiResponse;
-import com.bookillustrator.controller.dto.LoginRequest;
-import com.bookillustrator.controller.dto.UserResponse;
+import com.bookillustrator.application.usecase.user.IdentifyUserUseCase;
+import com.bookillustrator.interfaces.rest.request.LoginRequest;
+import com.bookillustrator.interfaces.rest.response.ApiResponse;
+import com.bookillustrator.interfaces.rest.response.UserResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,30 +29,25 @@ public class AuthController {
     private static final String SESSION_USER_ID = "userId";
     private static final String SESSION_COOKIE_NAME = "JSESSIONID";
 
-    private final LoginUseCase loginUseCase;
+    private final IdentifyUserUseCase identifyUserUseCase;
 
-    public AuthController(LoginUseCase loginUseCase) {
-        this.loginUseCase = loginUseCase;
+    public AuthController(IdentifyUserUseCase identifyUserUseCase) {
+        this.identifyUserUseCase = identifyUserUseCase;
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> login(@RequestBody LoginRequest request,
                                                              HttpServletRequest httpRequest) {
-        try {
-            LoginUseCase.Result result = loginUseCase.execute(
-                    new LoginUseCase.Command(request.email(), request.name()));
+        IdentifyUserUseCase.Result result = identifyUserUseCase.execute(
+                new IdentifyUserUseCase.Command(request.email(), request.name()));
 
-            // Regenerate the session ID on successful auth — otherwise a session ID
-            // fixed/known before login stays valid after login (session fixation).
-            HttpSession session = httpRequest.getSession(true);
-            httpRequest.changeSessionId();
-            session.setAttribute(SESSION_USER_ID, result.userId());
+        // Regenerate the session ID on successful auth — otherwise a session ID
+        // fixed/known before login stays valid after login (session fixation).
+        HttpSession session = httpRequest.getSession(true);
+        httpRequest.changeSessionId();
+        session.setAttribute(SESSION_USER_ID, result.userId());
 
-            return ResponseEntity.ok(ApiResponse.success(UserResponse.from(result)));
-        } catch (LoginUseCase.InvalidLoginException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(
-                    new ApiResponse.ApiError("INVALID_INPUT", e.getMessage(), null, false)));
-        }
+        return ResponseEntity.ok(ApiResponse.success(UserResponse.from(result)));
     }
 
     @DeleteMapping

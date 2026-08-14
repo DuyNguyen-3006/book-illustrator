@@ -1,6 +1,6 @@
 package com.bookillustrator.infrastructure.persistence;
 
-import com.bookillustrator.application.port.PipelineLock;
+import com.bookillustrator.application.port.output.PipelineLock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,7 +45,7 @@ class PostgresPipelineLockTest {
                 pool.submit(() -> {
                     ready.countDown();
                     awaitUninterruptibly(go);
-                    if (pipelineLock.tryAcquire(projectId, "style")) {
+                    if (pipelineLock.tryAcquire(projectId, "STYLE")) {
                         successCount.incrementAndGet();
                     }
                 });
@@ -57,7 +57,7 @@ class PostgresPipelineLockTest {
             assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
 
             assertThat(successCount.get()).isEqualTo(1);
-            assertThat(currentStepState()).isEqualTo("locked");
+            assertThat(currentStepState()).isEqualTo("RUNNING");
         } finally {
             tearDownTestProject();
         }
@@ -67,8 +67,8 @@ class PostgresPipelineLockTest {
     void secondAttemptFailsWhileLockIsHeldAndNotExpired() {
         setUpTestProject();
         try {
-            assertThat(pipelineLock.tryAcquire(projectId, "style")).isTrue();
-            assertThat(pipelineLock.tryAcquire(projectId, "style")).isFalse();
+            assertThat(pipelineLock.tryAcquire(projectId, "STYLE")).isTrue();
+            assertThat(pipelineLock.tryAcquire(projectId, "STYLE")).isFalse();
         } finally {
             tearDownTestProject();
         }
@@ -78,8 +78,8 @@ class PostgresPipelineLockTest {
     void wrongStepIdDoesNotAcquire() {
         setUpTestProject();
         try {
-            assertThat(pipelineLock.tryAcquire(projectId, "characters")).isFalse();
-            assertThat(currentStepState()).isEqualTo("pending");
+            assertThat(pipelineLock.tryAcquire(projectId, "CHARACTERS")).isFalse();
+            assertThat(currentStepState()).isEqualTo("IDLE");
         } finally {
             tearDownTestProject();
         }
@@ -96,7 +96,7 @@ class PostgresPipelineLockTest {
                 Long.class, "lock-test-" + System.nanoTime() + "@test.local", "Lock Test User");
         projectId = jdbcTemplate.queryForObject("""
                 INSERT INTO projects (user_id, title, book_text_path, current_step, step_state)
-                VALUES (?, 'Lock test project', '/tmp/does-not-matter.txt', 'style', 'pending')
+                VALUES (?, 'Lock test project', '/tmp/does-not-matter.txt', 'STYLE', 'IDLE')
                 RETURNING id
                 """, Long.class, userId);
     }

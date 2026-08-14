@@ -8,43 +8,45 @@ import org.junit.jupiter.api.Test;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Enforces the Clean Architecture layering from CLAUDE.md §1.1: dependencies point
- * inward only. This is the actual proof the layering isn't just folder names.
+ * Enforces the Clean Architecture layering from docs/architecture.md: dependencies
+ * point inward only. This is the actual proof the layering isn't just folder names.
  */
 class ArchitectureTest {
 
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.bookillustrator");
 
     @Test
-    void domainHasNoFrameworkOrOuterLayerDependencies() {
+    void domainHasNoSpringOrOuterLayerDependencies() {
+        // jakarta.persistence is allowed here — the user's explicit call is that
+        // domain.entity classes ARE the JPA entities (amends docs/architecture.md
+        // §4/§9, see DECISIONS.md). Spring itself and outer layers are still forbidden.
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..domain..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "..infrastructure..",
-                        "..controller..",
-                        "org.springframework..",
-                        "jakarta.persistence..")
-                .because("domain must stay plain Java — no framework, no outer layers");
+                        "..interfaces..",
+                        "org.springframework..")
+                .because("domain must not depend on Spring or outer layers");
         rule.check(classes);
     }
 
     @Test
-    void applicationDoesNotDependOnInfrastructureOrController() {
+    void applicationDoesNotDependOnInfrastructureOrInterfaces() {
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..application..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "..infrastructure..",
-                        "..controller..")
+                        "..interfaces..")
                 .because("application depends on domain only, never on outer layers");
         rule.check(classes);
     }
 
     @Test
-    void controllerDoesNotDependOnInfrastructureDirectly() {
+    void restControllersDoNotDependOnInfrastructureDirectly() {
         ArchRule rule = noClasses()
-                .that().resideInAPackage("..controller..")
+                .that().resideInAPackage("..interfaces.rest.controller..")
                 .should().dependOnClassesThat().resideInAnyPackage("..infrastructure..")
-                .because("controller must go through an application use case, never call infrastructure directly");
+                .because("controllers must go through an application use case, never call infrastructure directly");
         rule.check(classes);
     }
 }

@@ -1,7 +1,7 @@
-package com.bookillustrator.application;
+package com.bookillustrator.application.usecase.user;
 
-import com.bookillustrator.application.port.UserRepository;
-import com.bookillustrator.domain.User;
+import com.bookillustrator.application.port.output.UserRepository;
+import com.bookillustrator.domain.entity.User;
 import org.springframework.stereotype.Service;
 
 import java.util.regex.Pattern;
@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  * not this use case's). Doesn't exist → create the user. No password, no OAuth.
  */
 @Service
-public class LoginUseCase {
+public class IdentifyUserUseCase {
 
     // Deliberately simple — not full RFC 5322, just enough to reject obviously
     // malformed input without pulling in a Bean Validation dependency for 2 fields.
@@ -19,7 +19,7 @@ public class LoginUseCase {
 
     private final UserRepository userRepository;
 
-    public LoginUseCase(UserRepository userRepository) {
+    public IdentifyUserUseCase(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
@@ -34,10 +34,13 @@ public class LoginUseCase {
             throw new InvalidLoginException("name must not be blank");
         }
 
+        // Race recovery for two concurrent first-logins with the same new email is
+        // handled inside the UserRepository implementation (infrastructure knows about
+        // unique-constraint violations; this use case doesn't need to).
         User user = userRepository.findByEmail(email)
                 .orElseGet(() -> userRepository.create(email, name));
 
-        return new Result(user.id(), user.email(), user.name());
+        return new Result(user.getId(), user.getEmail(), user.getName());
     }
 
     public record Command(String email, String name) {

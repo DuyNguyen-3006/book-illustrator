@@ -1,8 +1,9 @@
-package com.bookillustrator.application;
+package com.bookillustrator.application.usecase.user;
 
-import com.bookillustrator.application.port.UserRepository;
-import com.bookillustrator.domain.User;
+import com.bookillustrator.application.port.output.UserRepository;
+import com.bookillustrator.domain.entity.User;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,14 +13,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class LoginUseCaseTest {
+class IdentifyUserUseCaseTest {
 
     private final FakeUserRepository repository = new FakeUserRepository();
-    private final LoginUseCase useCase = new LoginUseCase(repository);
+    private final IdentifyUserUseCase useCase = new IdentifyUserUseCase(repository);
 
     @Test
     void newEmailCreatesAUser() {
-        LoginUseCase.Result result = useCase.execute(new LoginUseCase.Command("a@test.local", "Alice"));
+        IdentifyUserUseCase.Result result = useCase.execute(new IdentifyUserUseCase.Command("a@test.local", "Alice"));
 
         assertThat(result.email()).isEqualTo("a@test.local");
         assertThat(result.name()).isEqualTo("Alice");
@@ -28,8 +29,9 @@ class LoginUseCaseTest {
 
     @Test
     void existingEmailReturnsTheSameUserInsteadOfCreatingADuplicate() {
-        LoginUseCase.Result first = useCase.execute(new LoginUseCase.Command("a@test.local", "Alice"));
-        LoginUseCase.Result second = useCase.execute(new LoginUseCase.Command("a@test.local", "Alice again"));
+        IdentifyUserUseCase.Result first = useCase.execute(new IdentifyUserUseCase.Command("a@test.local", "Alice"));
+        IdentifyUserUseCase.Result second =
+                useCase.execute(new IdentifyUserUseCase.Command("a@test.local", "Alice again"));
 
         assertThat(second.userId()).isEqualTo(first.userId());
         assertThat(second.name()).isEqualTo("Alice"); // existing record wins, not overwritten
@@ -38,15 +40,15 @@ class LoginUseCaseTest {
 
     @Test
     void blankNameIsRejected() {
-        assertThatThrownBy(() -> useCase.execute(new LoginUseCase.Command("a@test.local", "  ")))
-                .isInstanceOf(LoginUseCase.InvalidLoginException.class);
+        assertThatThrownBy(() -> useCase.execute(new IdentifyUserUseCase.Command("a@test.local", "  ")))
+                .isInstanceOf(IdentifyUserUseCase.InvalidLoginException.class);
         assertThat(repository.byEmail).isEmpty();
     }
 
     @Test
     void emailWithoutAtSignIsRejected() {
-        assertThatThrownBy(() -> useCase.execute(new LoginUseCase.Command("not-an-email", "Alice")))
-                .isInstanceOf(LoginUseCase.InvalidLoginException.class);
+        assertThatThrownBy(() -> useCase.execute(new IdentifyUserUseCase.Command("not-an-email", "Alice")))
+                .isInstanceOf(IdentifyUserUseCase.InvalidLoginException.class);
         assertThat(repository.byEmail).isEmpty();
     }
 
@@ -61,7 +63,8 @@ class LoginUseCaseTest {
 
         @Override
         public User create(String email, String name) {
-            User user = new User(nextId.getAndIncrement(), email, name);
+            User user = new User(email, name);
+            ReflectionTestUtils.setField(user, "id", nextId.getAndIncrement());
             byEmail.put(email, user);
             return user;
         }

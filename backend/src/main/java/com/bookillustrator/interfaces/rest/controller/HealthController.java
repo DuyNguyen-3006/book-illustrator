@@ -1,6 +1,6 @@
-package com.bookillustrator.controller;
+package com.bookillustrator.interfaces.rest.controller;
 
-import com.bookillustrator.controller.dto.ApiResponse;
+import com.bookillustrator.interfaces.rest.response.ApiResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 

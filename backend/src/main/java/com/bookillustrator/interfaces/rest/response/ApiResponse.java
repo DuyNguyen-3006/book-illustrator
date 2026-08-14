@@ -1,4 +1,4 @@
-package com.bookillustrator.controller.dto;
+package com.bookillustrator.interfaces.rest.response;
 
 /**
  * The single BE-FE response envelope every endpoint returns.

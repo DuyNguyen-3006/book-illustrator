@@ -1,4 +1,4 @@
-package com.bookillustrator.application.port;
+package com.bookillustrator.application.port.output;
 
 /**
  * Per-(project, current step) lock, acquired before any Gemini call.
