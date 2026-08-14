@@ -16,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -318,6 +319,43 @@ class ProjectControllerTest {
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_ERROR"));
+    }
+
+    @Test
+    void detailAfterAFailedStepCarriesTheErrorMessageAndTheStepStartTime() throws Exception {
+        // The UI has to render the failure after a refresh, when the failing response
+        // itself is long gone — that only works if the persisted error is readable.
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Failure Survives Refresh").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Failure Survives Refresh'", Long.class);
+        when(geminiGateway.generateStyle(any())).thenThrow(
+                org.springframework.web.client.HttpServerErrorException.create(
+                        org.springframework.http.HttpStatusCode.valueOf(503), "Service Unavailable",
+                        null, null, null));
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                .contentType("application/json").content("{}"));
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stepState").value("FAILED"))
+                .andExpect(jsonPath("$.data.lastError").value("The AI service failed. Your progress is saved."))
+                .andExpect(jsonPath("$.data.stepStartedAt").isNotEmpty());
+    }
+
+    @Test
+    void detailOfAFreshProjectHasNoErrorAndNoStepStartTime() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Nothing Ran Yet").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Nothing Ran Yet'", Long.class);
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.lastError").value(nullValue()))
+                .andExpect(jsonPath("$.data.stepStartedAt").value(nullValue()));
     }
 
     @Test

@@ -14,6 +14,8 @@ public record ProjectDetailResponse(
         String currentStep,
         String stepState,
         String style,
+        String lastError,
+        OffsetDateTime stepStartedAt,
         List<CharacterItem> characters,
         List<ChapterItem> chapters) {
 
@@ -27,6 +29,8 @@ public record ProjectDetailResponse(
                 result.currentStep(),
                 result.stepState(),
                 result.style(),
+                result.lastError(),
+                result.stepStartedAt(),
                 result.characters().stream().map(CharacterItem::from).toList(),
                 result.chapters().stream().map(ChapterItem::from).toList());
     }

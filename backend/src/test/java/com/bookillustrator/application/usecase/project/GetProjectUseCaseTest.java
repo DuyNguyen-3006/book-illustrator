@@ -66,6 +66,31 @@ class GetProjectUseCaseTest {
     }
 
     @Test
+    void freshProjectHasNoErrorAndNoStepStartTime() {
+        Project project = projectRepository.add(1L, "Title", "/books/1.txt");
+        bookTextStorage.contents.put("/books/1.txt", "text");
+
+        GetProjectUseCase.Result result = useCase.execute(project.getId(), 1L);
+
+        assertThat(result.lastError()).isNull();
+        assertThat(result.stepStartedAt()).isNull();
+    }
+
+    @Test
+    void failedStepExposesItsErrorAndStartTimeSoTheUiCanRenderThemAfterARefresh() {
+        Project project = projectRepository.add(1L, "Title", "/books/1.txt");
+        bookTextStorage.contents.put("/books/1.txt", "text");
+        project.startStep();
+        project.failStep("The AI service is busy. Try again in a moment.");
+
+        GetProjectUseCase.Result result = useCase.execute(project.getId(), 1L);
+
+        assertThat(result.stepState()).isEqualTo("FAILED");
+        assertThat(result.lastError()).isEqualTo("The AI service is busy. Try again in a moment.");
+        assertThat(result.stepStartedAt()).isNotNull();
+    }
+
+    @Test
     void nonOwnerGetsNotFoundNotForbidden() {
         Project project = projectRepository.add(1L, "Title", "/books/1.txt");
 
