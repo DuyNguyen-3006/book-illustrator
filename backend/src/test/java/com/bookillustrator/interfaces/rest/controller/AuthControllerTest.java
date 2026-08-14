@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -155,6 +157,57 @@ class AuthControllerTest {
         Integer count = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM users WHERE email = ?", Integer.class, TEST_EMAIL);
         assertThat(count).isEqualTo(1);
+    }
+
+    @Test
+    void currentSessionReturnsTheLoggedInUser() throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(get("/session").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.email").value(TEST_EMAIL))
+                .andExpect(jsonPath("$.data.name").value("Test User"))
+                .andExpect(jsonPath("$.error").doesNotExist());
+    }
+
+    @Test
+    void currentSessionWithoutLoginReturns401Unauthenticated() throws Exception {
+        mockMvc.perform(get("/session"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value("error"))
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void currentSessionAfterLogoutReturns401Unauthenticated() throws Exception {
+        MockHttpSession session = login();
+        mockMvc.perform(delete("/session").session(session)).andExpect(status().isOk());
+
+        mockMvc.perform(get("/session").session(session))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void currentSessionPointingAtADeletedUserReturns401Unauthenticated() throws Exception {
+        // A session can outlive the row it names — it must not 500 on the way out.
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userId", 999_999_999L);
+
+        mockMvc.perform(get("/session").session(session))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    private MockHttpSession login() throws Exception {
+        MvcResult result = mockMvc.perform(post("/session")
+                        .contentType("application/json")
+                        .content("{\"email\":\"" + TEST_EMAIL + "\",\"name\":\"Test User\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return (MockHttpSession) result.getRequest().getSession(false);
     }
 
     @Test

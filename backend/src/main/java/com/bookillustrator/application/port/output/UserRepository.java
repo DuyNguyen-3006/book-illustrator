@@ -7,6 +7,8 @@ import java.util.Optional;
 /** What the business needs from user storage — no JPA, no Spring. See docs/architecture.md §7. */
 public interface UserRepository {
 
+    Optional<User> findById(long id);
+
     Optional<User> findByEmail(String email);
 
     User create(String email, String name);

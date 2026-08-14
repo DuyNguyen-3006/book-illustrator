@@ -57,6 +57,13 @@ class IdentifyUserUseCaseTest {
         private final AtomicLong nextId = new AtomicLong(1);
 
         @Override
+        public Optional<User> findById(long id) {
+            return byEmail.values().stream()
+                    .filter(user -> user.getId() != null && user.getId() == id)
+                    .findFirst();
+        }
+
+        @Override
         public Optional<User> findByEmail(String email) {
             return Optional.ofNullable(byEmail.get(email));
         }

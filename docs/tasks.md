@@ -54,6 +54,14 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       `pipeline-rules SKILL.md` §5 once known
 
 ## Milestone 6 — 5. Frontend
+Backend gaps found while planning the frontend — these block FE screens, so they land first:
+- [ ] #35 `[BE]` Serve generated images through the API (`portraitUrl`/`illustrationUrl`)
+      instead of returning the server's disk path — blocks #23
+- [ ] #36 `[BE]` `GET /session` returns the current user, 401 `UNAUTHENTICATED` otherwise —
+      blocks #20
+- [ ] #37 `[BE]` Expose `lastError` + `stepStartedAt` on the project detail response —
+      blocks #24
+
 - [ ] #20 `[FE]` Identity screen (name + email, validation)
 - [ ] #21 `[FE]` Project list: status pill, 5-step progress indicator, empty state
 - [ ] #22 `[FE]` New project: title, paste-or-upload `.txt`, validation
@@ -71,6 +79,8 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 - [ ] #29 `[DOCS]` `README.md`: start/test commands, prerequisites, env vars,
       architecture overview
 - [ ] #30 `[SETUP]` `./test.sh`
+- [ ] #38 `[SETUP]` Frontend service in `docker-compose.yml` (nginx serving `dist`, proxying
+      `/api` to `app`) so `./start.sh` still brings up the whole stack
 
 ## Milestone 8 — 7. Final pass
 - [ ] #31 `[QA]` Manually test: refresh mid-step, second tab, double-click, forced
@@ -84,4 +94,4 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 ---
 
 ## Quick counts
-- `[BE]` 16 · `[FE]` 8 · `[DOCS]` 3 · `[SETUP]` 5 · `[QA]` 2 (34 total)
+- `[BE]` 19 · `[FE]` 8 · `[DOCS]` 3 · `[SETUP]` 6 · `[QA]` 2 (38 total)
