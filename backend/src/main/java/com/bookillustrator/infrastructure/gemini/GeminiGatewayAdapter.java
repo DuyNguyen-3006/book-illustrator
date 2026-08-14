@@ -22,6 +22,7 @@ import java.util.Map;
 public class GeminiGatewayAdapter implements GeminiGateway {
 
     private static final int MAX_CHARACTERS = 2;
+    private static final int MAX_CHAPTERS = 1;
 
     private static final Map<String, Object> CHARACTERS_SCHEMA = Map.of(
             "type", "array",
@@ -31,6 +32,16 @@ public class GeminiGatewayAdapter implements GeminiGateway {
                             "name", Map.of("type", "string"),
                             "prompt", Map.of("type", "string")),
                     "required", List.of("name", "prompt")));
+
+    private static final Map<String, Object> CHAPTERS_SCHEMA = Map.of(
+            "type", "array",
+            "items", Map.of(
+                    "type", "object",
+                    "properties", Map.of(
+                            "name", Map.of("type", "string"),
+                            "prompt", Map.of("type", "string"),
+                            "characters", Map.of("type", "array", "items", Map.of("type", "string"))),
+                    "required", List.of("name", "prompt", "characters")));
 
     private final GeminiClient client;
     private final String textModel;
@@ -130,6 +141,27 @@ public class GeminiGatewayAdapter implements GeminiGateway {
         return new PortraitsGenerationResult(portraits, previousInteractionId);
     }
 
+    @Override
+    public ChaptersGenerationResult generateChapters(ChaptersGenerationRequest request) {
+        GeminiClient.InteractionResult interaction = client.createInteraction(
+                textModel,
+                List.of(Map.of("type", "text", "text",
+                        "Now propose at most " + MAX_CHAPTERS + " chapter to illustrate — a scene "
+                                + "with a name, an image-generation prompt consistent with the art style "
+                                + "established above, and the list of character names (from the ones "
+                                + "already identified) who appear in that scene.")),
+                request.previousInteractionId(),
+                CHAPTERS_SCHEMA);
+
+        List<ChapterDraft> chapters = parseChapters(interaction.outputText());
+        if (chapters.size() > MAX_CHAPTERS) {
+            throw new GeminiGenerationException(
+                    "INVALID_OUTPUT", "Gemini returned more than " + MAX_CHAPTERS + " chapter.", true);
+        }
+
+        return new ChaptersGenerationResult(chapters, interaction.id());
+    }
+
     private List<CharacterDraft> parseCharacters(String json) {
         try {
             List<CharacterJson> parsed = objectMapper.readValue(json, new TypeReference<List<CharacterJson>>() {
@@ -141,7 +173,26 @@ public class GeminiGatewayAdapter implements GeminiGateway {
         }
     }
 
+    private List<ChapterDraft> parseChapters(String json) {
+        try {
+            List<ChapterJson> parsed = objectMapper.readValue(json, new TypeReference<List<ChapterJson>>() {
+            });
+            return parsed.stream()
+                    .map(c -> new ChapterDraft(c.name(), c.prompt(), c.characters()))
+                    .toList();
+        } catch (Exception e) {
+            throw new GeminiGenerationException(
+                    "INVALID_OUTPUT", "Gemini's chapter list could not be parsed.", true);
+        }
+    }
+
     /** Jackson-mapped shape of one item in the structured-output array — kept out of the port. */
     private record CharacterJson(@JsonProperty("name") String name, @JsonProperty("prompt") String prompt) {
+    }
+
+    private record ChapterJson(
+            @JsonProperty("name") String name,
+            @JsonProperty("prompt") String prompt,
+            @JsonProperty("characters") List<String> characters) {
     }
 }

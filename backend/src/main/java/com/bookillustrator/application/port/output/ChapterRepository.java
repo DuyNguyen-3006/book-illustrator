@@ -7,4 +7,6 @@ import java.util.List;
 public interface ChapterRepository {
 
     List<Chapter> findByProjectId(long projectId);
+
+    List<Chapter> saveAll(List<Chapter> chapters);
 }

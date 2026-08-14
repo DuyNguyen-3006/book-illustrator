@@ -20,4 +20,9 @@ public class ChapterRepositoryAdapter implements ChapterRepository {
     public List<Chapter> findByProjectId(long projectId) {
         return jpaRepository.findByProjectId(projectId);
     }
+
+    @Override
+    public List<Chapter> saveAll(List<Chapter> chapters) {
+        return jpaRepository.saveAll(chapters);
+    }
 }

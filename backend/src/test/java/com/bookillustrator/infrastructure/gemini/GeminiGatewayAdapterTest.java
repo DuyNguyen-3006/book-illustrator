@@ -211,4 +211,47 @@ class GeminiGatewayAdapterTest {
 
         verify(client).createImageInteraction(eq(IMAGE_MODEL), any(), eq("existing-chain-id"));
     }
+
+    @Test
+    void generateChaptersParsesTheStructuredJsonReply() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("interaction-6",
+                        "[{\"name\":\"The Tea Party\",\"prompt\":\"a chaotic tea party scene\","
+                                + "\"characters\":[\"Alice\",\"The Mad Hatter\"]}]"));
+
+        GeminiGateway.ChaptersGenerationResult result = adapter.generateChapters(
+                new GeminiGateway.ChaptersGenerationRequest("previous-id"));
+
+        assertThat(result.interactionId()).isEqualTo("interaction-6");
+        assertThat(result.chapters()).containsExactly(
+                new GeminiGateway.ChapterDraft("The Tea Party", "a chaotic tea party scene",
+                        List.of("Alice", "The Mad Hatter")));
+    }
+
+    @Test
+    void generateChaptersRejectsMoreThanOne() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("id",
+                        "[{\"name\":\"A\",\"prompt\":\"p\",\"characters\":[]},"
+                                + "{\"name\":\"B\",\"prompt\":\"p\",\"characters\":[]}]"));
+
+        assertThatThrownBy(() -> adapter.generateChapters(
+                new GeminiGateway.ChaptersGenerationRequest("previous-id")))
+                .isInstanceOf(GeminiGenerationException.class)
+                .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
+    }
+
+    @Test
+    void generateChaptersRejectsUnparsableOutput() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("id", "not json"));
+
+        assertThatThrownBy(() -> adapter.generateChapters(
+                new GeminiGateway.ChaptersGenerationRequest("previous-id")))
+                .isInstanceOf(GeminiGenerationException.class)
+                .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
+    }
 }

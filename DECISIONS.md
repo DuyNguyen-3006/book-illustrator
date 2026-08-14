@@ -281,3 +281,36 @@ Cost: this is now the second issue in a row where "done" waits on
 infrastructure outside my control (Gemini credits/quota), not on the code
 being ready. Recording this pattern because it'll likely repeat for #17/#18 —
 the code-review and unit-test bar isn't the bottleneck, live API access is.
+
+---
+
+## 11. Chapters (#17) — live-verified, but Gemini itself is flaky in a way worth documenting
+
+#17 doesn't touch the image model, so it wasn't blocked by #16's quota issue —
+went through the full Plan → Test-first → Code → Review → Done cycle in one
+pass, including a real live run through the actual pipeline (Style →
+Characters → Chapters, skipping the still-blocked Portraits by advancing
+`current_step` directly in the DB, since Chapters doesn't need portraits to
+exist, only the text chain and the character names).
+
+The live run surfaced something worth recording precisely because it isn't a
+code bug: the same exact request (`response_format` + `previous_interaction_id`
+together, chaining off a real prior interaction) returned `permission_denied`
+on one call and succeeded on an identical retry seconds later, twice, and this
+was reproduced with raw `curl` outside the app too — so it's Gemini-side
+flakiness, not something in `RestGeminiClient`. I confirmed this rather than
+assuming it away: retried manually (a user-triggered retry, consistent with
+CLAUDE.md §2.2 — not a loop) and it passed. Worth knowing for grading/demo
+day: a `RATE_LIMITED`/`INVALID_INPUT` on the first click sometimes just means
+"click retry."
+
+The same live run also became an accidental real test of the character-name
+validation: Gemini's chapter draft referenced "Elara" (the book's protagonist,
+mentioned in the source text but not one of the 2 characters actually
+generated in the Characters step) alongside a real character — the app
+correctly rejected that response as `INVALID_OUTPUT` rather than silently
+dropping the unmatched name or crashing, exactly as designed.
+
+Cost: none beyond the time spent distinguishing "my bug" from "their flake" —
+worth it, since assuming every non-2xx response is a code bug would have sent
+me down the wrong path.
