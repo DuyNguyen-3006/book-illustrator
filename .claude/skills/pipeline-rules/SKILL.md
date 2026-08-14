@@ -118,9 +118,17 @@ Exceeding it is a validation error, not a truncation.
 ## 5. Context chaining instead of resending the full input
 
 Confirmed from a real run of `Book_illustration.ipynb` (steps 1–5, Python SDK
-`google-genai>=2.10.0`). REST/JS mapping still needs a final check against
-https://ai.google.dev/gemini-api/docs before coding (§2.3) — the shapes below are the
-*mechanism*, not yet verified wire format.
+`google-genai>=2.10.0`), and since verified over REST by this app (#19).
+
+**Verified live for the text chain:** the book is uploaded once via the Files API, sent
+in the first interaction as `{"type": "document", "uri": ...}`, and every later text step
+passes only `previous_interaction_id`. A project that has run Style and Characters shows
+one `gemini_book_file_uri` and a moving `last_text_interaction_id`, with the book never
+resent.
+
+**Not verified live for the image chain:** the request shape is correct as far as the API's
+own validation (it rejected `image/png` and a turn_list input, both since fixed), but the
+account's image quota is zero, so no image call has completed. See TESTING.md.
 
 - **Mechanism used:** the "interactions" API — `client.interactions.create(...)`. Two
   separate chains run in parallel, not one:
