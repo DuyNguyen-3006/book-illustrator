@@ -3,6 +3,7 @@ package com.bookillustrator.domain.entity;
 import com.bookillustrator.domain.enums.PipelineStep;
 import com.bookillustrator.domain.enums.ProjectStatus;
 import com.bookillustrator.domain.enums.StepState;
+import com.bookillustrator.domain.exception.IllegalPipelineStateException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -11,6 +12,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
@@ -93,6 +95,13 @@ public class Project {
         }
     }
 
+    @PreUpdate
+    void onUpdate() {
+        // pipeline-rules SKILL.md §1: resume and debugging both depend on this actually
+        // reflecting the last state change, not just insert time.
+        updatedAt = OffsetDateTime.now();
+    }
+
     public Long getId() {
         return id;
     }
@@ -127,5 +136,68 @@ public class Project {
 
     public String getStyle() {
         return style;
+    }
+
+    // ---- Pipeline state machine — pipeline-rules SKILL.md §1 ----
+
+    /** IDLE or FAILED -> RUNNING. Illegal while already RUNNING or once COMPLETED. */
+    public void startStep() {
+        if (stepState == StepState.RUNNING) {
+            throw new IllegalPipelineStateException("step " + currentStep + " is already running");
+        }
+        if (stepState == StepState.COMPLETED) {
+            throw new IllegalPipelineStateException(
+                    "cannot restart step " + currentStep + " — it already completed");
+        }
+        this.stepState = StepState.RUNNING;
+        this.status = ProjectStatus.RUNNING;
+    }
+
+    /** RUNNING -> COMPLETED. Illegal from any other step_state. */
+    public void completeStep() {
+        if (stepState != StepState.RUNNING) {
+            throw new IllegalPipelineStateException(
+                    "cannot complete step " + currentStep + " from state " + stepState);
+        }
+        this.stepState = StepState.COMPLETED;
+    }
+
+    /** RUNNING -> FAILED, records the error. Illegal from any other step_state. */
+    public void failStep(String error) {
+        if (stepState != StepState.RUNNING) {
+            throw new IllegalPipelineStateException(
+                    "cannot fail step " + currentStep + " from state " + stepState);
+        }
+        this.stepState = StepState.FAILED;
+        this.lastError = error;
+    }
+
+    /**
+     * Moves to the next pipeline step (resetting step_state to IDLE), or — from
+     * ILLUSTRATIONS — marks the whole project COMPLETED. Only legal once the current
+     * step has COMPLETED; this is what prevents skipping a step.
+     */
+    public void advanceToNextStep() {
+        if (stepState != StepState.COMPLETED) {
+            throw new IllegalPipelineStateException(
+                    "cannot advance past step " + currentStep + " before it completes");
+        }
+        PipelineStep next = nextStep(currentStep);
+        if (next == null) {
+            this.status = ProjectStatus.COMPLETED;
+            return;
+        }
+        this.currentStep = next;
+        this.stepState = StepState.IDLE;
+    }
+
+    private static PipelineStep nextStep(PipelineStep step) {
+        return switch (step) {
+            case STYLE -> PipelineStep.CHARACTERS;
+            case CHARACTERS -> PipelineStep.PORTRAITS;
+            case PORTRAITS -> PipelineStep.CHAPTERS;
+            case CHAPTERS -> PipelineStep.ILLUSTRATIONS;
+            case ILLUSTRATIONS -> null;
+        };
     }
 }

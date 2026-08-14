@@ -36,10 +36,10 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       text
 
 ## Milestone 4 — 3. Pipeline state machine and concurrency (before real Gemini calls)
-- [ ] #11 `[BE]` Implement `status`/`step_state` model per
+- [x] #11 `[BE]` Implement `status`/`step_state` model per
       `.claude/skills/pipeline-rules/SKILL.md` §1
-- [ ] #12 `[BE]` Per-`(project_id, step_id)` lock with TTL, per pipeline-rules §2
-      (unit-test: two concurrent triggers → exactly one call)
+- [x] #12 `[BE]` Per-`(project_id, step_id)` lock with TTL, per pipeline-rules §2
+      (unit-test: two concurrent triggers → exactly one call) — already satisfied by #6
 - [ ] #13 `[BE]` Resume logic per pipeline-rules §3 (unit-test: kill mid-step, reload,
       resumes correctly)
 
