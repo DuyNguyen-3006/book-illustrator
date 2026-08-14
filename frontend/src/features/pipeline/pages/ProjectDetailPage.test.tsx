@@ -80,7 +80,8 @@ describe("ProjectDetailPage", () => {
     // A character without a portrait says so instead of rendering a broken image.
     expect(screen.getByText(/portrait not generated yet/i)).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /read/i }));
+    // The book text lives in a modal now, not in a panel at the bottom.
+    await userEvent.click(screen.getByRole("button", { name: /read book text/i }));
     expect(screen.getByText(/once upon a time by the river/i)).toBeInTheDocument();
   });
 

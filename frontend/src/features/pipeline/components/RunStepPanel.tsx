@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/shared/components/ToastProvider";
 import { STEP_LABELS, STEP_RUNNING_LABELS } from "@/shared/constants/pipeline";
 import { isApiError, messageOf } from "@/shared/lib/errors";
 import { useRunStep } from "../hooks/useRunStep";
@@ -13,19 +13,37 @@ import type { ProjectDetail } from "../types/pipeline.types";
 /**
  * One action for the step the project is actually on. The backend picks which
  * step runs, so this cannot ask for one out of order.
+ *
+ * Outcomes of pressing the button are transient and go to a toast; the failed
+ * step itself stays on the page in StepStatusBanner, because that state has to
+ * survive a reload.
  */
 export function RunStepPanel({ project }: { project: ProjectDetail }) {
   const [style, setStyle] = useState("");
-  const { mutate: run, isPending, error } = useRunStep(project.projectId);
+  const toast = useToast();
+  const { mutate: run, isPending } = useRunStep(project.projectId);
 
   const running = project.stepState === "RUNNING";
   const failed = project.stepState === "FAILED";
   const stepLabel = STEP_LABELS[project.currentStep];
   const stuck = running && isStepStuck(project.stepStartedAt);
 
-  // STEP_LOCKED means another tab or request already holds this step. That is the
-  // duplicate-call guard doing its job, not a failure to report (frontend-rules §2).
-  const lockedElsewhere = isApiError(error) && error.code === "STEP_LOCKED";
+  function handleRun() {
+    run(
+      { style },
+      {
+        onSuccess: () => toast.info(`${STEP_RUNNING_LABELS[project.currentStep]}. This page follows along.`),
+        onError: (error) => {
+          // STEP_LOCKED is the duplicate-call guard doing its job, not a failure.
+          if (isApiError(error) && error.code === "STEP_LOCKED") {
+            toast.info("That step is already running somewhere else. This page will catch up.");
+            return;
+          }
+          toast.error(messageOf(error));
+        },
+      },
+    );
+  }
 
   if (project.status === "COMPLETED") {
     return (
@@ -67,47 +85,25 @@ export function RunStepPanel({ project }: { project: ProjectDetail }) {
           </div>
         )}
 
-        {lockedElsewhere && (
-          <Alert role="status" variant="info" size="sm">
-            <AlertDescription>
-              This step is already running somewhere else. This page will update when it finishes.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {error && !lockedElsewhere && (
-          <Alert role="alert" variant="destructive" size="sm">
-            <AlertDescription>{messageOf(error)}</AlertDescription>
-          </Alert>
-        )}
-
         {stuck && (
-          <Alert role="status" variant="warning" size="sm">
-            <AlertDescription>
-              This run has held the step for over {LOCK_TTL_SECONDS} seconds, which usually means the
-              attempt died. Retrying now takes the step over rather than starting a second call.
-            </AlertDescription>
-          </Alert>
+          <p className="text-sm text-muted-foreground">
+            This run has held the step for over {LOCK_TTL_SECONDS} seconds, which usually means the
+            attempt died. Retrying takes the step over rather than starting a second call.
+          </p>
         )}
 
         <div>
           {/* Disabled while the backend reports RUNNING, so a double click or a
               second tab cannot fire the same paid call twice. The exception is a
               run that outlived the lock TTL, which the next attempt reclaims. */}
-          <Button
-            size="lg"
-            disabled={(running && !stuck) || isPending}
-            onClick={() => run({ style })}
-          >
+          <Button size="lg" disabled={(running && !stuck) || isPending} onClick={handleRun}>
             {isPending
               ? "Starting"
-              : stuck
+              : stuck || failed
                 ? `Retry ${stepLabel}`
                 : running
                   ? "Running"
-                  : failed
-                    ? `Retry ${stepLabel}`
-                    : `Run ${stepLabel}`}
+                  : `Run ${stepLabel}`}
           </Button>
         </div>
       </CardContent>
