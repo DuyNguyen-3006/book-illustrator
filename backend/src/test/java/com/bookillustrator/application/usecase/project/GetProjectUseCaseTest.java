@@ -168,6 +168,11 @@ class GetProjectUseCaseTest {
         public List<Character> saveAll(List<Character> characters) {
             throw new UnsupportedOperationException("not needed for this test");
         }
+
+        @Override
+        public List<Character> replaceForProject(long projectId, List<Character> characters) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 
     private static class FakeChapterRepository implements ChapterRepository {
@@ -179,7 +184,7 @@ class GetProjectUseCaseTest {
         }
 
         @Override
-        public List<Chapter> saveAll(List<Chapter> chapters) {
+        public List<Chapter> replaceForProject(long projectId, List<Chapter> chapters) {
             throw new UnsupportedOperationException("not needed for this test");
         }
     }

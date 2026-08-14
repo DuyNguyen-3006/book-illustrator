@@ -115,7 +115,9 @@ public class RunCharactersStepUseCase {
         locked.advanceToNextStep();
 
         transactionTemplate.executeWithoutResult(status -> {
-            characterRepository.saveAll(characters);
+            // Replace, not append: this step can run again after being reclaimed or
+            // retried, and appending would push the project past its 2-character cap.
+            characterRepository.replaceForProject(locked.getId(), characters);
             projectRepository.save(locked);
         });
         return PipelineStepResult.completed(locked);

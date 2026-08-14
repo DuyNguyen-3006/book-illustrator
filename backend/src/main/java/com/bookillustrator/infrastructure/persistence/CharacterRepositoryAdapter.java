@@ -25,4 +25,13 @@ public class CharacterRepositoryAdapter implements CharacterRepository {
     public List<Character> saveAll(List<Character> characters) {
         return jpaRepository.saveAll(characters);
     }
+
+    @Override
+    public List<Character> replaceForProject(long projectId, List<Character> characters) {
+        // Runs inside the caller's transaction, so a project is never briefly
+        // left with no characters if the insert fails.
+        jpaRepository.deleteByProjectId(projectId);
+        jpaRepository.flush();
+        return jpaRepository.saveAll(characters);
+    }
 }

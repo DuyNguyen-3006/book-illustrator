@@ -123,7 +123,8 @@ public class RunChaptersStepUseCase {
         locked.advanceToNextStep();
 
         transactionTemplate.executeWithoutResult(status -> {
-            chapterRepository.saveAll(chapters);
+            // Replace, not append: a reclaimed or retried run must not exceed the 1-chapter cap.
+            chapterRepository.replaceForProject(locked.getId(), chapters);
             projectRepository.save(locked);
         });
         return PipelineStepResult.completed(locked);

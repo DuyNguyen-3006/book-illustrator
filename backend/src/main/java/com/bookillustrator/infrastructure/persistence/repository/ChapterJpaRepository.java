@@ -8,4 +8,6 @@ import java.util.List;
 public interface ChapterJpaRepository extends JpaRepository<Chapter, Long> {
 
     List<Chapter> findByProjectId(Long projectId);
+
+    void deleteByProjectId(Long projectId);
 }
