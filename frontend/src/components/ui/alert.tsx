@@ -14,10 +14,12 @@ const alertVariants = {
     warning: "border-amber-600/40 bg-amber-600/5 text-amber-700 dark:text-amber-400",
     info: "border-border bg-muted text-foreground",
   },
+  // Same padding scale as Card, so text inside an alert and text inside a card
+  // start on the same left edge instead of two edges 8px apart.
   size: {
-    default: "p-4",
-    sm: "p-3 text-sm",
-    lg: "p-6 text-base"
+    default: "p-6",
+    sm: "p-4 text-sm",
+    lg: "p-8 text-base"
   }
 };
 

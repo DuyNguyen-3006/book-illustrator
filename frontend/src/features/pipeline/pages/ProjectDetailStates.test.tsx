@@ -85,8 +85,10 @@ describe("project detail, live states", () => {
 
     renderDetail();
 
+    // The persisted failure is announced rather than parked in the layout, but it
+    // still reaches the user on a fresh load, which is what spec §4.3 is about.
     expect(await screen.findByRole("alert")).toHaveTextContent("The AI service is busy");
-    expect(screen.getByText(/everything generated before this step is kept/i)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/portraits failed/i);
     expect(screen.getByRole("button", { name: /retry portraits/i })).toBeEnabled();
   });
 
