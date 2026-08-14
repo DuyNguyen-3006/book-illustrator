@@ -424,3 +424,63 @@ border beam, which fails both the skill's "motion must be motivated" rule and
 `framer-motion` dependency unused. Removing them took the production bundle from
 427 KB to 298 KB. The component library I insisted on in decision 13 is, so far,
 paying for itself mostly in components I have deleted.
+---
+
+## 15. The image steps stay unfinished on purpose, and the QA run is why the caps hold
+
+Two things happened at the end that are worth recording together, because they
+point the same way: the tests I trusted least were the ones that found things.
+
+**Image generation.** Portraits failed in the browser with `INVALID_INPUT`. The
+AI did not guess at it: it reproduced the call inside the app container so the
+key never reached a log, and the API named two separate faults in the request
+this project had been carrying since that code was written against mocks -
+`response_format.mime_type` rejects `image/png` and accepts only `image/jpeg`,
+and the content array the text path sends is read as a turn_list where the image
+model wants a step_list. Both fixed. With both fixed the request passes
+validation and hits `429` on every image model this key can reach, and the Imagen
+models answer `404 no longer available to new users`. The free tier's image quota
+is zero.
+
+I chose to leave #16 and #18 open rather than mark them done. The code and its
+unit tests exist, the request shape is now confirmed by the API itself, but no
+image call has ever completed, so the response parsing is unverified. Claiming
+otherwise would be the one thing this whole exercise is meant to catch.
+
+**The QA run.** The five manual scenarios were mostly confirmation - duplicate
+clicks lose the race, a refresh and a second tab see the same in-flight state, a
+restart keeps pipeline state. The stuck-step scenario was not. Reclaiming a
+stranded CHARACTERS step re-ran it and *appended*, taking a project from 2
+characters to 4 and breaking a cap the assessment calls hard. Unit tests had
+never caught it because they assert what one run writes, not what two runs leave
+behind. Fixed by making the write a replace inside the transaction that was
+already there (#43), regression test first, then the same scenario re-run against
+the live stack to watch it end at 2.
+
+The restart scenario also exposed something I decided *not* to fix: sessions are
+in-memory, so a backend restart signs the user out. Pipeline state is untouched
+and the UI handles the 401 by sending them to sign in. Persisting sessions is
+more machinery than this scope earns, so it is written down in TESTING.md as a
+limitation instead of quietly patched.
+
+---
+
+## If I had one more day
+
+Billing on the Google account, first thing, and then the two image steps end to
+end. Everything else in this project has been confirmed against something real,
+and those two have not - the honest state today is "coded, unit-tested, request
+shape validated by the API, response shape assumed". A single successful portrait
+would either confirm the `steps[].content[]` assumption or produce the third
+wire-format surprise in a row, and past form says the second is at least as
+likely.
+
+After that, the thing the QA run taught me: more tests that run a step *twice*.
+The duplicate-characters bug existed because every test asserted the result of a
+single run. Reclaim, retry-after-failure, and straggler-write paths all deserve
+the same "run it again and count the rows" treatment, at the persistence level
+where in-memory fakes cannot lie about it.
+
+I would not spend that day on features. A sixth pipeline step would fit the
+current shape without a rewrite, which was the point of the state machine; what
+the project actually lacks is proof for the parts a reviewer cannot run.
