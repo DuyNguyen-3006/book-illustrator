@@ -1,22 +1,23 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { IdentityPage } from "@/features/auth/pages/IdentityPage";
+import { ProjectListPage } from "@/features/projects/pages/ProjectListPage";
+import { AppLayout } from "./AppLayout";
 import { ProtectedRoute } from "./ProtectedRoute";
 
-/** Screens land here one issue at a time — #21 project list, #22 new project, #23 detail. */
+/** #22 new project and #23 project detail land here next. */
 export function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<IdentityPage />} />
       <Route
-        path="/projects"
         element={
           <ProtectedRoute>
-            <main className="mx-auto w-full max-w-5xl px-6 py-12">
-              <h1 className="text-2xl font-semibold tracking-tight">Your projects</h1>
-            </main>
+            <AppLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route path="/projects" element={<ProjectListPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
