@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/shared/components/ErrorState";
 import { formatDate } from "@/shared/lib/formatDate";
@@ -17,10 +18,10 @@ export function ProjectDetailPage() {
 
   if (isPending) {
     return (
-      <div role="status" aria-label="Loading project" aria-busy="true" className="flex flex-col gap-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-28 w-full" />
-        <Skeleton className="h-40 w-full" />
+      <div role="status" aria-label="Loading project" aria-busy="true" className="flex flex-col gap-8">
+        <Skeleton className="h-9 w-72" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
       </div>
     );
   }
@@ -30,13 +31,17 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <Link to="/projects" className="text-sm text-muted-foreground hover:text-foreground">
+    <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-3">
+        <Link
+          to="/projects"
+          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           Back to projects
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">{project.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Created {formatDate(project.createdAt)}</p>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{project.title}</h1>
+        <p className="text-sm text-muted-foreground">Created {formatDate(project.createdAt)}</p>
       </div>
 
       <PipelineStepper
@@ -50,19 +55,19 @@ export function ProjectDetailPage() {
       <RunStepPanel project={project} />
 
       {project.style && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Art style</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed text-muted-foreground">{project.style}</p>
-          </CardContent>
-        </Card>
+        <section className="flex flex-col gap-4">
+          <SectionHeading>Art style</SectionHeading>
+          <Card>
+            <CardContent className="py-6">
+              <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">{project.style}</p>
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {project.characters.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold tracking-tight">Characters</h2>
+          <SectionHeading>Characters</SectionHeading>
           <div className="grid gap-4 sm:grid-cols-2">
             {project.characters.map((character) => (
               <CharacterCard key={character.id} character={character} />
@@ -73,7 +78,7 @@ export function ProjectDetailPage() {
 
       {project.chapters.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold tracking-tight">Chapter</h2>
+          <SectionHeading>Chapter</SectionHeading>
           <div className="flex flex-col gap-4">
             {project.chapters.map((chapter) => (
               <ChapterCard key={chapter.id} chapter={chapter} />
@@ -85,4 +90,8 @@ export function ProjectDetailPage() {
       <BookTextPanel bookText={project.bookText} />
     </div>
   );
+}
+
+function SectionHeading({ children }: { children: string }) {
+  return <h2 className="text-xl font-semibold tracking-tight">{children}</h2>;
 }

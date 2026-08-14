@@ -22,9 +22,9 @@ describe("LandingPage", () => {
     steps.forEach((step) => expect(screen.getByText(step)).toBeInTheDocument());
   });
 
-  it("does not ask for a password anywhere", () => {
+  it("says up front that nothing runs on its own", () => {
     renderWithProviders(<LandingPage />);
 
-    expect(screen.getByText(/no password/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing runs on its own/i)).toBeInTheDocument();
   });
 });

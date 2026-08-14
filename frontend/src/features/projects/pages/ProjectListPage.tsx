@@ -15,9 +15,9 @@ export function ProjectListPage() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Your projects</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Your projects</h1>
+          <p className="text-sm text-muted-foreground">
             Each project runs the five steps in order, at your pace.
           </p>
         </div>
