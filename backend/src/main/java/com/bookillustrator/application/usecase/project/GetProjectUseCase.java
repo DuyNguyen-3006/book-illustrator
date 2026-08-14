@@ -58,6 +58,8 @@ public class GetProjectUseCase {
                 project.getCurrentStep().name(),
                 project.getStepState().name(),
                 project.getStyle(),
+                project.getLastError(),
+                project.getStepStartedAt(),
                 characters,
                 chapters);
     }
@@ -81,6 +83,10 @@ public class GetProjectUseCase {
             String currentStep,
             String stepState,
             String style,
+            /** The already-classified, user-safe failure message — never raw provider text. */
+            String lastError,
+            /** When the current step started; the UI shows elapsed time and offers stuck-step retry from it. */
+            OffsetDateTime stepStartedAt,
             List<CharacterResult> characters,
             List<ChapterResult> chapters) {
     }
