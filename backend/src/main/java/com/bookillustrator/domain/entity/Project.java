@@ -76,6 +76,9 @@ public class Project {
     @Column(name = "last_text_interaction_id")
     private String lastTextInteractionId;
 
+    @Column(name = "last_image_interaction_id")
+    private String lastImageInteractionId;
+
     @Version
     @Column(nullable = false)
     private Long version;
@@ -166,6 +169,10 @@ public class Project {
         return lastTextInteractionId;
     }
 
+    public String getLastImageInteractionId() {
+        return lastImageInteractionId;
+    }
+
     public String getLastError() {
         return lastError;
     }
@@ -186,6 +193,11 @@ public class Project {
     /** Same as {@link #recordTextInteraction} for a step that doesn't touch the book file. */
     public void recordTextInteraction(String interactionId) {
         this.lastTextInteractionId = interactionId;
+    }
+
+    /** The image chain is separate from the text chain — pipeline-rules SKILL.md §5. */
+    public void recordImageInteraction(String interactionId) {
+        this.lastImageInteractionId = interactionId;
     }
 
     public void recordStyle(String style) {

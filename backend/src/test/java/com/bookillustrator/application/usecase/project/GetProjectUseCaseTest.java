@@ -53,7 +53,7 @@ class GetProjectUseCaseTest {
         ReflectionTestUtils.setField(character, "id", 1L);
         characterRepository.byProjectId.put(project.getId(), List.of(character));
 
-        Chapter chapter = new Chapter(project.getId(), "Ch1", "prompt");
+        Chapter chapter = new Chapter(project.getId(), "Ch1", "prompt", List.of(1L));
         ReflectionTestUtils.setField(chapter, "id", 1L);
         chapterRepository.byProjectId.put(project.getId(), List.of(chapter));
 
@@ -151,6 +151,11 @@ class GetProjectUseCaseTest {
         @Override
         public List<Chapter> findByProjectId(long projectId) {
             return byProjectId.getOrDefault(projectId, List.of());
+        }
+
+        @Override
+        public List<Chapter> saveAll(List<Chapter> chapters) {
+            throw new UnsupportedOperationException("not needed for this test");
         }
     }
 }

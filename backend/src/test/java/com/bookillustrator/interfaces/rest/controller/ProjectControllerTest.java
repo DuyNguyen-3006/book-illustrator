@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -50,6 +51,10 @@ class ProjectControllerTest {
     @AfterEach
     void cleanUp() {
         for (String email : List.of(TEST_EMAIL, OTHER_EMAIL)) {
+            jdbcTemplate.update(
+                    "DELETE FROM chapters WHERE project_id IN "
+                            + "(SELECT id FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?))",
+                    email);
             jdbcTemplate.update(
                     "DELETE FROM characters WHERE project_id IN "
                             + "(SELECT id FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?))",
@@ -337,6 +342,62 @@ class ProjectControllerTest {
         mockMvc.perform(get("/projects/" + projectId).session(session))
                 .andExpect(jsonPath("$.data.characters.length()").value(1))
                 .andExpect(jsonPath("$.data.characters[0].name").value("Alice"));
+    }
+
+    @Test
+    void runStepGeneratesPortraitsAndAdvancesToChapters() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Portraits Step Test").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Portraits Step Test'", Long.class);
+        jdbcTemplate.update("UPDATE projects SET current_step = 'PORTRAITS' WHERE id = ?", projectId);
+        jdbcTemplate.update(
+                "INSERT INTO characters (project_id, name, prompt) VALUES (?, 'Alice', 'a curious young woman')",
+                projectId);
+        long characterId = jdbcTemplate.queryForObject(
+                "SELECT id FROM characters WHERE project_id = ?", Long.class, projectId);
+        when(geminiGateway.generatePortraits(any())).thenReturn(new GeminiGateway.PortraitsGenerationResult(
+                List.of(new GeminiGateway.PortraitResult(characterId, new byte[]{1, 2, 3}, "image/png")),
+                "img-interaction-1"));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.currentStep").value("CHAPTERS"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"));
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(jsonPath("$.data.characters[0].portraitImagePath").isNotEmpty());
+    }
+
+    @Test
+    void runStepGeneratesChaptersAndAdvancesToIllustrations() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Chapters Step Test").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Chapters Step Test'", Long.class);
+        jdbcTemplate.update("UPDATE projects SET current_step = 'CHAPTERS' WHERE id = ?", projectId);
+        jdbcTemplate.update(
+                "INSERT INTO characters (project_id, name, prompt) VALUES (?, 'Alice', 'a curious young woman')",
+                projectId);
+        when(geminiGateway.generateChapters(any())).thenReturn(new GeminiGateway.ChaptersGenerationResult(
+                List.of(new GeminiGateway.ChapterDraft("The Tea Party", "a chaotic tea party scene",
+                        List.of("Alice"))),
+                "interaction-id"));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.currentStep").value("ILLUSTRATIONS"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"));
+
+        String characterIds = jdbcTemplate.queryForObject(
+                "SELECT character_ids FROM chapters WHERE project_id = ?", String.class, projectId);
+        assertThat(characterIds).isNotBlank();
     }
 
     @Test

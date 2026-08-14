@@ -14,6 +14,10 @@ public interface GeminiGateway {
 
     CharactersGenerationResult generateCharacters(CharactersGenerationRequest request);
 
+    PortraitsGenerationResult generatePortraits(PortraitsGenerationRequest request);
+
+    ChaptersGenerationResult generateChapters(ChaptersGenerationRequest request);
+
     /**
      * @param bookText            full book text — only actually sent if this is the
      *                            project's first Gemini call ({@code existingBookFileUri} is null)
@@ -42,5 +46,36 @@ public interface GeminiGateway {
     }
 
     record CharactersGenerationResult(List<CharacterDraft> characters, String interactionId) {
+    }
+
+    /**
+     * The image chain is separate from the text chain and is seeded fresh with the
+     * style on its first call (pipeline-rules SKILL.md §5) — not just a chain handle.
+     */
+    record PortraitsGenerationRequest(
+            String style, List<CharacterForPortrait> characters, String previousImageInteractionId) {
+    }
+
+    record CharacterForPortrait(long characterId, String name, String prompt) {
+    }
+
+    record PortraitResult(long characterId, byte[] imageBytes, String mimeType) {
+    }
+
+    record PortraitsGenerationResult(List<PortraitResult> portraits, String interactionId) {
+    }
+
+    /** Still on the text chain, same as Style/Characters (pipeline-rules SKILL.md §5). */
+    record ChaptersGenerationRequest(String previousInteractionId) {
+    }
+
+    /**
+     * @param characterNames the character names this chapter references — Gemini only
+     *                       knows names, not our internal ids; the use case resolves them.
+     */
+    record ChapterDraft(String name, String prompt, List<String> characterNames) {
+    }
+
+    record ChaptersGenerationResult(List<ChapterDraft> chapters, String interactionId) {
     }
 }

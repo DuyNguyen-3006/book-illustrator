@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,8 +121,53 @@ public class RestGeminiClient implements GeminiClient {
         return new InteractionResult((String) response.get("id"), extractOutputText(response));
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * Same endpoint, {@code response_format: {type:"image", mime_type}} instead of a
+     * text/JSON schema. Response shape is NOT YET LIVE-VERIFIED (issue #16) — the image
+     * model returns {@code 429 limit: 0} on this key's free tier. Best-supported guess,
+     * not a documentation-only guess: the text case's own docs claimed a top-level
+     * {@code output_text} field and that was wrong (#14) — the real reply is nested in
+     * {@code steps[].content[]} on the {@code model_output} step, so this assumes the
+     * image reply is nested the same way, as a {@code content[]} entry with
+     * {@code type:"image"} and base64 {@code data}/{@code mime_type} fields. Verify
+     * against a real call before trusting this beyond the mocked test suite.
+     */
+    @Override
+    public ImageInteractionResult createImageInteraction(
+            String model, List<Map<String, Object>> input, String previousInteractionId) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("input", input);
+        if (previousInteractionId != null) {
+            body.put("previous_interaction_id", previousInteractionId);
+        }
+        body.put("response_format", Map.of("type", "image", "mime_type", "image/png"));
+
+        Map<String, Object> response = restClient.post()
+                .uri(BASE_URL + "/v1beta/interactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                });
+
+        Map<String, Object> imageContent = findModelOutputContent(response, "image");
+        if (imageContent == null) {
+            throw new IllegalStateException("Gemini did not return an image for this interaction");
+        }
+        byte[] imageBytes = Base64.getDecoder().decode((String) imageContent.get("data"));
+        return new ImageInteractionResult((String) response.get("id"), imageBytes,
+                (String) imageContent.get("mime_type"));
+    }
+
     private static String extractOutputText(Map<String, Object> response) {
+        Map<String, Object> textContent = findModelOutputContent(response, "text");
+        return textContent == null ? null : (String) textContent.get("text");
+    }
+
+    /** The first {@code content[]} entry of the given type on the {@code model_output} step. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> findModelOutputContent(Map<String, Object> response, String contentType) {
         List<Map<String, Object>> steps = (List<Map<String, Object>>) response.get("steps");
         if (steps == null) {
             return null;
@@ -131,8 +177,13 @@ public class RestGeminiClient implements GeminiClient {
                 continue;
             }
             List<Map<String, Object>> content = (List<Map<String, Object>>) step.get("content");
-            if (content != null && !content.isEmpty()) {
-                return (String) content.get(0).get("text");
+            if (content == null) {
+                continue;
+            }
+            for (Map<String, Object> item : content) {
+                if (contentType.equals(item.get("type"))) {
+                    return item;
+                }
             }
         }
         return null;
