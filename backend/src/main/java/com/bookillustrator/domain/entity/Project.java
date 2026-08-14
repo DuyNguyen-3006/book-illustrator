@@ -2,6 +2,7 @@ package com.bookillustrator.domain.entity;
 
 import com.bookillustrator.domain.enums.PipelineStep;
 import com.bookillustrator.domain.enums.ProjectStatus;
+import com.bookillustrator.domain.enums.ResumeAction;
 import com.bookillustrator.domain.enums.StepState;
 import com.bookillustrator.domain.exception.IllegalPipelineStateException;
 import jakarta.persistence.Column;
@@ -16,6 +17,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 
 /**
@@ -26,6 +28,14 @@ import java.time.OffsetDateTime;
 @Entity
 @Table(name = "projects")
 public class Project {
+
+    /**
+     * How long a RUNNING step is trusted before resume treats it as died mid-call.
+     * Single source of truth — PostgresPipelineLock's SQL uses this same value so the
+     * DB-level lock TTL and the domain-level resume check never drift apart. 120s: see
+     * DECISIONS.md for why.
+     */
+    public static final Duration LOCK_TTL = Duration.ofSeconds(120);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -138,6 +148,10 @@ public class Project {
         return style;
     }
 
+    public OffsetDateTime getStepStartedAt() {
+        return stepStartedAt;
+    }
+
     // ---- Pipeline state machine — pipeline-rules SKILL.md §1 ----
 
     /** IDLE or FAILED -> RUNNING. Illegal while already RUNNING or once COMPLETED. */
@@ -151,6 +165,11 @@ public class Project {
         }
         this.stepState = StepState.RUNNING;
         this.status = ProjectStatus.RUNNING;
+        // The SQL lock (PostgresPipelineLock) sets this too for the concurrent-acquire
+        // path; this covers the FAILED -> RUNNING retry path, which never goes through
+        // that SQL update, so resumeAction()'s TTL check would otherwise see a stale
+        // (or null) timestamp from the previous, already-failed attempt.
+        this.stepStartedAt = OffsetDateTime.now();
     }
 
     /** RUNNING -> COMPLETED. Illegal from any other step_state. */
@@ -189,6 +208,25 @@ public class Project {
         }
         this.currentStep = next;
         this.stepState = StepState.IDLE;
+    }
+
+    /**
+     * What a resumed session (refresh, restart, returning hours later) should do next
+     * for the current step — pipeline-rules SKILL.md §3. {@code now} is passed in
+     * rather than read internally so this stays deterministic and testable without
+     * mocking the clock.
+     */
+    public ResumeAction resumeAction(OffsetDateTime now) {
+        return switch (stepState) {
+            case COMPLETED -> ResumeAction.ADVANCE;
+            case IDLE -> ResumeAction.START;
+            case FAILED -> ResumeAction.SURFACE_ERROR;
+            case RUNNING -> isStepStale(now) ? ResumeAction.RECLAIM_AND_RESTART : ResumeAction.IN_PROGRESS;
+        };
+    }
+
+    private boolean isStepStale(OffsetDateTime now) {
+        return stepStartedAt == null || stepStartedAt.plus(LOCK_TTL).isBefore(now);
     }
 
     private static PipelineStep nextStep(PipelineStep step) {
