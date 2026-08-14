@@ -50,7 +50,7 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 - [x] #17 `[BE]` Step 4 — Chapters, structured JSON, **max 1**, referencing characters
 - [ ] #18 `[BE]` Step 5 — Illustrations, one per chapter, reusing portraits for
       consistency
-- [ ] #19 `[BE]` Context chaining: book text sent once, not resent per step; fill in
+- [x] #19 `[BE]` Context chaining: book text sent once, not resent per step; fill in
       `pipeline-rules SKILL.md` §5 once known
 
 ## Milestone 6 — 5. Frontend
@@ -85,10 +85,10 @@ Backend gaps found while planning the frontend — these block FE screens, so th
 ## Milestone 8 — 7. Final pass
 - [x] #31 `[QA]` Manually test: refresh mid-step, second tab, double-click, forced
       stuck step, server restart mid-pipeline
-- [ ] #32 `[FE]` Re-check against `docs/app-demo.html` — cover everything it does
-- [ ] #33 `[DOCS]` `DECISIONS.md` has ≥4 entries, ≥3 AI overrides, closing "one more
+- [x] #32 `[FE]` Re-check against `docs/app-demo.html` — cover everything it does
+- [x] #33 `[DOCS]` `DECISIONS.md` has ≥4 entries, ≥3 AI overrides, closing "one more
       day" answer
-- [ ] #34 `[QA]` Squash nothing — verify commit history reads as incremental, real
+- [x] #34 `[QA]` Squash nothing — verify commit history reads as incremental, real
       timestamps
 
 ---
