@@ -95,6 +95,33 @@ class RunStyleStepUseCaseTest {
         verify(projectRepository).save(any());
     }
 
+    /**
+     * backend-rules SKILL.md §3, "Idempotency": a late response from a reclaimed
+     * attempt must not double-write results. Simulates a straggler — this attempt's
+     * Gemini call finally returns after a reclaimed attempt already advanced the same
+     * row — by having the final save() hit the row's real {@code @Version} check
+     * (Hibernate throws on any concurrent modification, this scenario included).
+     * Asserts the straggler's write is rejected outright rather than silently
+     * succeeding with stale data — never that it quietly "wins".
+     */
+    @Test
+    void aLateResponseFromAReclaimedAttemptDoesNotSilentlySucceed() {
+        Project project = freshProject();
+        Project lockedProject = asIfJustAcquired(project);
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project), Optional.of(lockedProject));
+        when(pipelineLock.tryAcquire(1L, "STYLE")).thenReturn(true);
+        when(bookTextStorage.read("/book.txt")).thenReturn("book text");
+        when(geminiGateway.generateStyle(any())).thenReturn(
+                new GeminiGateway.StyleGenerationResult("Watercolor style", "files/book-uri", "interaction-1"));
+        // Stands in for "a reclaimed attempt already advanced this row" — the final
+        // save sees a version conflict instead of quietly overwriting newer data.
+        when(projectRepository.save(lockedProject)).thenThrow(
+                new org.springframework.orm.ObjectOptimisticLockingFailureException(Project.class, 1L));
+
+        assertThatThrownBy(() -> useCase.execute(1L, OWNER_ID, null))
+                .isInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
+    }
+
     @Test
     void secondConcurrentCallReportsInProgressWithoutCallingGemini() {
         Project project = freshProject();
