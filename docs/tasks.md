@@ -55,14 +55,14 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 
 ## Milestone 6 — 5. Frontend
 Backend gaps found while planning the frontend — these block FE screens, so they land first:
-- [ ] #35 `[BE]` Serve generated images through the API (`portraitUrl`/`illustrationUrl`)
+- [x] #35 `[BE]` Serve generated images through the API (`portraitUrl`/`illustrationUrl`)
       instead of returning the server's disk path — blocks #23
-- [ ] #36 `[BE]` `GET /session` returns the current user, 401 `UNAUTHENTICATED` otherwise —
+- [x] #36 `[BE]` `GET /session` returns the current user, 401 `UNAUTHENTICATED` otherwise —
       blocks #20
-- [ ] #37 `[BE]` Expose `lastError` + `stepStartedAt` on the project detail response —
+- [x] #37 `[BE]` Expose `lastError` + `stepStartedAt` on the project detail response —
       blocks #24
 
-- [ ] #20 `[FE]` Identity screen (name + email, validation)
+- [x] #20 `[FE]` Identity screen (name + email, validation)
 - [ ] #21 `[FE]` Project list: status pill, 5-step progress indicator, empty state
 - [ ] #22 `[FE]` New project: title, paste-or-upload `.txt`, validation
 - [ ] #23 `[FE]` Project detail: stepper, book text view, style, character cards,

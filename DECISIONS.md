@@ -314,3 +314,71 @@ dropping the unmatched name or crashing, exactly as designed.
 Cost: none beyond the time spent distinguishing "my bug" from "their flake" —
 worth it, since assuming every non-2xx response is a code bug would have sent
 me down the wrong path.
+
+---
+
+## 12. Fixed three backend gaps before writing any frontend, instead of letting the UI work around them
+
+Planning the frontend against the finished backend turned up three things that
+would each have forced an ugly compromise in the UI: `ProjectDetailResponse`
+handed the browser `LocalImageStorage`'s own file path (`/data/images/<uuid>.png`)
+instead of something a browser can load; there was no `GET /session`, so after a
+refresh the app could not tell who was signed in; and `lastError` /
+`stepStartedAt` were persisted but never left the use case, so a reopened project
+could show "failed" with no reason.
+
+The AI offered a frontend-only path for all three — cache the user in
+`localStorage`, read the error message off the failing `run-step` response, serve
+images with a static resource handler. I turned it down. Two of those are
+straight-up wrong against the spec (§5.2 says images are served through our own
+API; §4.3 says a failed step's reason survives a reload), and the third makes the
+browser the source of truth for identity, which is exactly what
+`frontend-rules` §2 forbids. They became #35, #36 and #37 and were done first,
+test-first, in that order.
+
+Cost: half a day before a single screen existed, and one contract change —
+`portraitImagePath` became `portraitUrl`, which broke an existing assertion in
+`ProjectControllerTest` and had to be updated deliberately rather than patched
+around. Worth it: the detail response also stopped publishing the server's
+directory layout to anyone with an account, which nobody had flagged as a bug.
+
+---
+
+## 13. Frontend stack: Lightswind on Tailwind v3, TanStack Query, and a feature-sliced layout
+
+I picked the frontend stack myself rather than take the AI's proposal wholesale.
+Two of its recommendations I kept: **TanStack Query** for server state (polling a
+running pipeline step, stopping when the tab is hidden, resuming on focus and
+clearing timers on unmount are all things it does properly and I would have got
+subtly wrong by hand), and one branch per issue for the frontend work. Two I
+overrode.
+
+First, the component library. The AI recommended plain Tailwind v4 plus about six
+hand-written primitives, and argued against a component kit on
+"right-sized solution" grounds. I chose **Lightswind** anyway — I want the UI to
+beat `app-demo.html`, not tie it, and I would rather spend the remaining time on
+pipeline UX than on writing my own button. It verified the concrete constraints
+before agreeing: Lightswind's `plugin.js` is a Tailwind **v3** plugin, so the
+project is on v3, not v4, and its npm package exports only a version string —
+components arrive by CLI copy, shadcn-style. Then `npx lightswind init` copied
+**207 components** into `src/` and asked to install ~25 more packages (three.js,
+gsap, tsparticles, recharts, the ai sdk). That is where I drew the line: kept the
+nine components actually used, deleted the other 196, installed none of the extra
+packages. Cost: five real dependencies (`clsx`, `tailwind-merge`,
+`class-variance-authority`, `lucide-react`, `framer-motion`), a Tailwind v3
+lock-in, and two bugs I now own in vendored code — `input.tsx` imported a
+framer-motion *type* as a value (a runtime crash under Vite's ESM) and
+`border-beam.tsx` had an unused prop that `noUnusedLocals` rejects. Both were
+found by actually running the thing, not by reading it.
+
+Second, the source layout. The AI proposed a layout mirroring the backend's clean
+architecture (`domain/`, `api/`, `features/`). I replaced it with the
+feature-sliced structure I already use in another project of mine (KLTN_dev-v2):
+`features/<domain>/{components,pages,hooks,services,types}` with `shared/`,
+`router/`, `config/` and `components/ui`. Same dependency rules, but a layout I
+can navigate without thinking, and one that scales to the five pipeline screens
+without inventing a new folder per screen.
+
+Deliberately not installed: `zod` (the backend is ours and one envelope guard
+covers it), `msw` (the tests mock the service module directly), and any form
+library (three small forms).
