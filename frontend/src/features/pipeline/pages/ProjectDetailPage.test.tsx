@@ -103,7 +103,13 @@ describe("ProjectDetailPage", () => {
   });
 
   it("offers no run button while the backend reports the step already running", async () => {
-    fetchProject.mockResolvedValue({ ...baseProject, stepState: "RUNNING", stepStartedAt: "2026-08-12T09:31:00Z" });
+    // Started just now: a run that outlives the lock TTL is a different case,
+    // covered by the stuck-step test in ProjectDetailStates.
+    fetchProject.mockResolvedValue({
+      ...baseProject,
+      stepState: "RUNNING",
+      stepStartedAt: new Date().toISOString(),
+    });
 
     renderDetail();
 
