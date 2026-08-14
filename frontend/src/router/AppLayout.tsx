@@ -1,7 +1,8 @@
 import { Link, Outlet } from "react-router-dom";
+import { SignOutButton } from "@/features/auth/components/SignOutButton";
 import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 
-/** Shell for every signed-in screen. Sign out arrives with #25. */
+/** Shell for every signed-in screen. */
 export function AppLayout() {
   const { data: user } = useCurrentUser();
 
@@ -15,7 +16,10 @@ export function AppLayout() {
           >
             Book Illustrator
           </Link>
-          {user && <span className="truncate text-sm text-muted-foreground">{user.email}</span>}
+          <div className="flex items-center gap-4">
+            {user && <span className="hidden truncate text-sm text-muted-foreground sm:inline">{user.email}</span>}
+            <SignOutButton />
+          </div>
         </div>
       </header>
 
