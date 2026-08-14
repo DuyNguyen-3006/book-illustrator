@@ -87,3 +87,88 @@ SET step_state = 'RUNNING',
     step_started_at = NOW()
 WHERE id = ?
   AND step_state = 'IDLE';
+```
+
+---
+
+## 5. Repository interfaces live in `domain`, not `application`
+
+While building the `CreateProject` flow I asked the AI assistant to drop the
+repository port entirely and call Spring Data's `JpaRepository` straight from
+the use case — fewer files, one less indirection. It built that, and
+separately it had earlier caught `UserRepository` accidentally extending
+`JpaRepository` (an actual compile error) and fixed it by making the port
+plain again. Between those two changes I stopped and reconsidered: collapsing
+the port entirely pulls Spring Data into `application`, which is exactly the
+boundary the rest of this file argues for keeping.
+
+I pushed back and asked for the interfaces to sit in `domain` instead —
+alongside the entities they serve, which is where classic Clean Architecture
+puts them, not in `application` where I'd originally had the AI place them.
+`application` keeps only the ports that aren't tied to a specific entity
+(`BookTextStorage`, and later the Gemini clients). The AI re-implemented it
+that way and added an ArchUnit test for the JPA-leak class of bug so it can't
+silently happen again.
+
+Cost: this was rebuilt three times in one session (ports removed, then
+collapsed, then reinstated in a different package) before landing correctly —
+a reminder to state the target package explicitly instead of letting "port
+vs. no port" and "which package" get decided as two separate, contradictory
+asks.
+
+---
+
+## 6. Adopted a written architecture spec (`docs/architecture.md`) as the single source of truth, and simplified `step_state` to 4 values
+
+After decision 5's back-and-forth, I wrote out the full backend architecture
+myself instead of continuing to negotiate it turn by turn with the AI —
+project structure, layer responsibilities, DTO rules, the Gemini gateway
+shape, concurrency, migrations, testing, naming — and had the AI apply it
+exactly rather than interpret it. That document now lives at
+`docs/architecture.md` and is the authoritative reference; `CLAUDE.md` §1.1
+just points to it.
+
+The one real conflict: my spec's `StepState` (`IDLE | RUNNING | FAILED |
+COMPLETED`) has fewer values than the `step_state` the AI had already shipped
+and applied to a running Postgres database (`pending | locked | calling |
+succeeded | failed`, with a separate `lock_expires_at` column). The AI flagged
+this explicitly instead of silently picking one — asked whether to rewrite the
+already-applied migration or adjust the new doc to match the old schema. I
+chose to rewrite: drop the `locked`/`calling` split, use `step_started_at` +
+a TTL comparison for stale-lock recovery instead of a dedicated
+`lock_expires_at` column (matches `docs/architecture.md` §14's conditional
+`UPDATE` example directly), and reset the local Postgres volume since nothing
+in it was real data yet.
+
+Cost: a from-scratch V1 migration rewrite and a full package move
+(`controller` → `interfaces/rest`, flat `application`/`domain` →
+`usecase/{user,project}`, `port/output`, `model`, `enums` — see
+`docs/architecture.md` §3) touching every existing class in one pass. Verified
+by rerunning the full test suite (30 tests, including the Postgres-backed
+ones) against a freshly-migrated database plus a live end-to-end check through
+the actual Docker container, not just `mvn test` — the previous rebuilds in
+decision 5 taught me not to trust "it compiles" alone here.
+
+---
+
+## 7. Merged the domain model and the JPA entity into one class
+
+Right after landing decision 6, I asked to undo the `domain/model` (plain
+record) vs. `infrastructure/persistence/entity` (`@Entity`) split entirely —
+one class, `domain/entity/{User,Project}.java`, carrying `@Entity` directly.
+This is the opposite of what I'd written in `docs/architecture.md` §4/§9
+("Never use a JPA entity as a domain model") minutes earlier. The AI flagged
+that contradiction explicitly — pointed at the exact section, said the
+current (split) code was correct per my own doc, and asked me to confirm
+before undoing verified, tested work rather than just complying. I confirmed:
+I want one entity, not a record I have to keep in sync with a JPA twin by
+hand for a two-model app this size.
+
+Cost: `domain` now depends on `jakarta.persistence` (JPA's annotations), which
+`ArchitectureTest` used to forbid outright — updated that rule to allow
+`jakarta.persistence` specifically while still forbidding Spring itself and
+`infrastructure`/`interfaces`. Deleted the `Mapper` classes (nothing left to
+map between). `docs/architecture.md` §4/§9 now carry an explicit amendment
+note rather than being silently out of date. Re-verified: 30/30 tests green,
+live Docker end-to-end check again after this change too — not just after
+decision 6's.

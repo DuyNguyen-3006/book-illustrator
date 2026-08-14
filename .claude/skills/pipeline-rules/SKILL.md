@@ -18,22 +18,24 @@ Never encode both project progress and step progress in a single column.
 | `status` | project / run | "Is this whole run idle, running, blocked, finished?" |
 | `step_state` | current step | "What is happening inside the step right now?" |
 
-Baseline values (extend per project, but keep the two axes separate):
+Baseline values — matches `domain.enums.{ProjectStatus,PipelineStep,StepState}` and
+`docs/architecture.md` §4/§14 exactly (uppercase, no separate "locked"/"calling" split —
+superseded 2026-08-14, see `DECISIONS.md`):
 
 ```
-status      : draft | running | paused | failed | completed
-step_state  : pending | locked | calling | succeeded | failed
-current_step: <int or step key>  ← which step the run is on
+status      : DRAFT | RUNNING | PAUSED | FAILED | COMPLETED
+step_state  : IDLE | RUNNING | FAILED | COMPLETED
+current_step: STYLE | CHARACTERS | PORTRAITS | CHAPTERS | ILLUSTRATIONS
 ```
 
 Rules:
 - `status` changes only on run-level events (user starts, run finishes, run is abandoned).
-- `step_state` changes only within one step and resets to `pending` when the run advances
+- `step_state` changes only within one step and resets to `IDLE` when the run advances
   to the next step.
 - Every transition is written to storage **before** the side effect it authorizes, never
   after. Order is always: persist state → perform action → persist result.
-- Illegal transitions must raise, not be silently corrected. A run in `completed` cannot
-  go back to `calling`.
+- Illegal transitions must raise, not be silently corrected. A run in `COMPLETED` cannot
+  go back to `RUNNING`.
 - Derive UI labels from `(status, current_step, step_state)`. Do not add a third,
   denormalized "display status" field that can drift.
 - Store `last_error` and `updated_at` alongside the state — resume and debugging both
@@ -47,21 +49,26 @@ money and time, so the lock is not optional.
 
 Required behaviour:
 - The lock key is `(project_id, step_id)` — never a global lock, never per-user.
-- Acquisition is **atomic** at the storage layer. Acceptable mechanisms: a unique
-  constraint insert, `SELECT ... FOR UPDATE`, a conditional `UPDATE ... WHERE
-  step_state = 'pending'` that must affect exactly 1 row, or a DB advisory lock.
-  A read-then-write check in application code is NOT acceptable — it races.
+- Acquisition is **atomic** at the storage layer: a single conditional `UPDATE ... SET
+  step_state = 'RUNNING', step_started_at = now() WHERE step_state = 'IDLE' OR
+  (step_state = 'RUNNING' AND step_started_at < now() - TTL)` that must affect exactly 1
+  row (see `PostgresPipelineLock` for the reference implementation — `docs/architecture.md`
+  §14 explicitly prefers this over holding a `SELECT ... FOR UPDATE` transaction open for
+  the whole Gemini call). A read-then-write check in application code is NOT acceptable —
+  it races.
 - Sequence for every step execution:
-  1. Try to acquire the lock (`pending` → `locked`). Failed acquisition = someone else is
-     already running this step.
+  1. Try to acquire the lock (`IDLE` → `RUNNING`, `step_started_at = now()`). Failed
+     acquisition = someone else is already running this step (or its TTL hasn't expired).
   2. On failure, return the **current state** to the caller — do not queue, do not wait,
      do not start a second call. The frontend shows "already running" and keeps polling.
-  3. Set `step_state = 'calling'`, persist, then call the API.
-  4. Persist the result and set `succeeded` / `failed`, releasing the lock in the same
-     transaction as the result write.
-- The lock carries a **TTL / heartbeat** so a crashed worker does not block the step
-  forever. Choose the TTL to exceed the worst-case API latency of the step and record the
-  choice in `DECISIONS.md`.
+  3. Call the API — `step_started_at` (not a separate lock flag) is what a resumed/second
+     request checks to tell "genuinely running" from "stale."
+  4. Persist the result and set `COMPLETED` / `FAILED`, releasing the lock in the same
+     write as the result.
+- The lock's **TTL** is compared against `step_started_at`, not a separate
+  `lock_expires_at` column — one fewer field to keep in sync. Choose the TTL to exceed
+  the worst-case API latency of the step and record the choice in `DECISIONS.md` (120s,
+  already logged).
 - Reclaiming an expired lock is a state transition too — log it explicitly, never silently.
 - If the step writes results, use an idempotency key derived from `(project_id, step_id,
   attempt)` so a late response from a reclaimed lock cannot double-write.
@@ -71,13 +78,13 @@ Required behaviour:
 After a crash, a refresh, or the user returning hours later, the run continues from where
 it stopped. Re-running completed steps is a bug, not a safe default.
 
-- On load, read `(status, current_step, step_state)` and branch:
-  - `succeeded` → advance to the next step.
-  - `pending` → the step has not started; it may be started.
-  - `locked` / `calling` with a live lock → do nothing, report "in progress", poll.
-  - `locked` / `calling` with an expired lock → the previous attempt died; reclaim and
+- On load, read `(status, current_step, step_state, step_started_at)` and branch:
+  - `COMPLETED` → advance to the next step.
+  - `IDLE` → the step has not started; it may be started.
+  - `RUNNING` with `step_started_at` inside the TTL → do nothing, report "in progress", poll.
+  - `RUNNING` with `step_started_at` past the TTL → the previous attempt died; reclaim and
     re-run **only that step**.
-  - `failed` → surface the error; the user decides whether to re-run that step.
+  - `FAILED` → surface the error; the user decides whether to re-run that step.
 - Output of every completed step is persisted before the run advances, so a resumed run
   never needs to recompute an earlier step to obtain its input.
 - Never implement "start over from step 1" as the recovery path. If a full restart is ever
@@ -117,8 +124,8 @@ https://ai.google.dev/gemini-api/docs before coding (§2.3) — the shapes below
      `previous_interaction_id` pointing at the prior image call.
 - **What is passed forward between steps:** the `id` of the previous interaction
   (`previous_interaction_id`). That's the only handle needed — persist one
-  `last_text_interaction_id` and one `last_image_interaction_id` per project in our
-  JSON storage (see `status`/`step_state` in §1), not the interaction content itself.
+  `last_text_interaction_id` and one `last_image_interaction_id` per project in
+  Postgres (see `status`/`step_state` in §1), not the interaction content itself.
 - **What is stored locally vs. provider side:** the book text, uploaded file, and full
   conversation history live on Google's side, addressed by `book.uri` and interaction
   `id`s. We store only the ids/uris plus the structured results we already need

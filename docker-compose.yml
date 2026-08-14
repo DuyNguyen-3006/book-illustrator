@@ -28,8 +28,14 @@ services:
       # Overrides the .env default of localhost — inside the compose network the
       # Postgres container is reachable by service name, not localhost.
       DB_HOST: postgres
+      # Book text/images must survive a container rebuild (spec §5.2 + resume
+      # requirement) — write them to the mounted volume, not the container layer.
+      STORAGE_ROOT: /data
+    volumes:
+      - appdata:/data
     ports:
       - "8080:8080"
 
 volumes:
   pgdata:
+  appdata:

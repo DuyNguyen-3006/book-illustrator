@@ -40,55 +40,30 @@ over-engineer.** This is a graded criterion (§07 "Right-sized solution"), not a
 original proposal on 2026-08-13 — logged in `DECISIONS.md` (§2.1 below — required entry:
 "stack and storage choice").
 
-### 1.1 Backend folder layout (Clean Architecture, 4 top-level packages)
+### 1.1 Backend architecture — see `docs/architecture.md`
+
+Full rules (project structure, layer responsibilities, ports, DTOs, Gemini gateway,
+concurrency, migrations, testing) live in **`docs/architecture.md`** — read it before
+creating or moving any backend class. That document is authoritative; this section is
+just the two-line summary:
 
 ```
-backend/src/main/java/.../
-├── controller/       ← REST controllers, request/response DTOs
-├── application/      ← use cases + port interfaces (what infra must implement)
-├── domain/           ← entities, value objects, the pipeline state machine — no
-│                        framework imports here at all (no Spring, no JPA, no Jackson)
-└── infrastructure/   ← JPA repositories/entities, the Gemini REST client, Postgres
-                         lock implementation, filesystem image/text storage
+interfaces/rest → application (usecase, port/{input,output}, dto) → domain (model, enums, exception)
+infrastructure  → application, domain   (implements the output ports; never the reverse)
 ```
 
-Dependency direction is one-way, inward: `controller` and `infrastructure` depend on
-`application`; `application` depends on `domain`; `domain` depends on nothing else in this
-list. `controller` never calls `infrastructure` directly — only through an `application`
-use case. Concretely for this project:
+`domain` has zero framework imports (no Spring, no JPA). `application` depends on
+`domain` only, accessing everything external through ports it owns
+(`application/port/output`). Enforce this with `ArchitectureTest`
+(`backend/src/test/java/.../ArchitectureTest.java`, ArchUnit) — that's the real
+guardrail, not just the prose here or in `docs/architecture.md`.
 
-- `domain` — the `status`/`step_state` state machine and its legal-transition rules
-  (`.claude/skills/pipeline-rules/SKILL.md` §1), the 2-character/1-chapter cap validation,
-  plain Java records/classes only.
-- `application` — one use case per pipeline step (`RunStyleStep`, `RunCharactersStep`,
-  ...) plus port interfaces they depend on: `ProjectRepository`, `PipelineLock`,
-  `GeminiTextClient`, `GeminiImageClient`. Application code imports these as interfaces,
-  never their concrete implementation.
-- `infrastructure` — Spring Data JPA implementations of `ProjectRepository`, a
-  `PipelineLock` backed by `SELECT ... FOR UPDATE` / a unique constraint on
-  `(project_id, step_id)`, the actual REST calls to Gemini (§2.3 research first), local
-  filesystem read/write for images and book text.
-- `controller` — maps HTTP requests to use-case calls, builds the response envelope
-  (`.claude/skills/backend-rules/SKILL.md` §1). No business logic here.
-
-**DTO placement — two different kinds, two different layers, don't mix them:**
-- `controller/dto` — the HTTP envelope (`ApiResponse<T>`, `status`/`data`/`error`, per
-  `backend-rules` §1). This is transport shape, not a business concept — `application`
-  must never know it exists, so it can't move there or anywhere else outside `controller`.
-- `application` — each use case gets its own plain-Java Command/Result model (e.g.
-  `CreateProjectCommand`, `CreateProjectResult`), with zero HTTP/JSON concepts. `controller`
-  calls the use case with a Command, gets a Result back, and wraps *that* in
-  `ApiResponse.success(result)` — the wrapping happens in `controller`, never inside the
-  use case.
-
-**Enforce this with a real test, don't just describe it in prose:** an ArchUnit rule (or
-equivalent) asserting `domain` has zero dependencies on `infrastructure`/`controller`/
-Spring/JPA is cheap to write and is the actual proof the layering isn't just folder names
-— add it as part of Milestone 2 (#5), not as an afterthought.
-
-If a use case ends up as a one-line pass-through to a repository with no domain logic,
-that's a signal to collapse it, not a missing abstraction to add elsewhere — see the
-over-engineering note in the Architecture row above.
+**Superseded 2026-08-13:** the package layout changed twice while building issue #8
+(`application/port` → repository ports briefly in `domain` directly → now
+`application/port/{input,output}` per `docs/architecture.md`). The current code does
+**not** yet match this structure — migrating it is tracked as its own step, following
+`docs/architecture.md` §23 ("one vertical slice at a time," not a big-bang rewrite). See
+`DECISIONS.md` for the history.
 
 ---
 
