@@ -69,6 +69,17 @@ Required behaviour:
   `lock_expires_at` column — one fewer field to keep in sync. Choose the TTL to exceed
   the worst-case API latency of the step and record the choice in `DECISIONS.md` (120s,
   already logged).
+
+**Reconciling the two IDLE→RUNNING paths (read before wiring #14's step use cases):**
+`PostgresPipelineLock.tryAcquire()` (raw SQL) and `Project.startStep()` (domain method,
+§1) both claim to perform the IDLE→RUNNING transition, but only one of them should run
+per request. `tryAcquire()` is the one that must win the race — it's atomic at the SQL
+layer and already sets `step_started_at`. `startStep()` on an entity reloaded *after* a
+successful `tryAcquire()` would incorrectly throw `"already running"` (its own state
+check sees `RUNNING` and assumes someone else got there first). So: after
+`tryAcquire()` succeeds, don't call `startStep()` again for that same acquisition — the
+lock already performed it. `startStep()` still matters for the FAILED→RUNNING retry
+path, where there's no concurrent-acquire race to protect against with SQL.
 - Reclaiming an expired lock is a state transition too — log it explicitly, never silently.
 - If the step writes results, use an idempotency key derived from `(project_id, step_id,
   attempt)` so a late response from a reclaimed lock cannot double-write.
