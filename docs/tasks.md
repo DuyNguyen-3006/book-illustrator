@@ -63,7 +63,7 @@ Backend gaps found while planning the frontend — these block FE screens, so th
       blocks #24
 
 - [x] #20 `[FE]` Identity screen (name + email, validation)
-- [ ] #21 `[FE]` Project list: status pill, 5-step progress indicator, empty state
+- [x] #21 `[FE]` Project list: status pill, 5-step progress indicator, empty state
 - [ ] #22 `[FE]` New project: title, paste-or-upload `.txt`, validation
 - [ ] #23 `[FE]` Project detail: stepper, book text view, style, character cards,
       chapter cards, action button, per-item portrait/illustration progress
