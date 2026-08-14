@@ -75,15 +75,15 @@ Backend gaps found while planning the frontend — these block FE screens, so th
 - [x] #26 `[BE]` Backend tests: step ordering, progress, retry (per backend-rules
       skill §3)
 - [ ] #27 `[FE]` Frontend tests: a couple of components' loading/error/empty states
-- [ ] #28 `[DOCS]` `TESTING.md`: strategy + a real test-run report
-- [ ] #29 `[DOCS]` `README.md`: start/test commands, prerequisites, env vars,
+- [x] #28 `[DOCS]` `TESTING.md`: strategy + a real test-run report
+- [x] #29 `[DOCS]` `README.md`: start/test commands, prerequisites, env vars,
       architecture overview
-- [ ] #30 `[SETUP]` `./test.sh`
-- [ ] #38 `[SETUP]` Frontend service in `docker-compose.yml` (nginx serving `dist`, proxying
+- [x] #30 `[SETUP]` `./test.sh`
+- [x] #38 `[SETUP]` Frontend service in `docker-compose.yml` (nginx serving `dist`, proxying
       `/api` to `app`) so `./start.sh` still brings up the whole stack
 
 ## Milestone 8 — 7. Final pass
-- [ ] #31 `[QA]` Manually test: refresh mid-step, second tab, double-click, forced
+- [x] #31 `[QA]` Manually test: refresh mid-step, second tab, double-click, forced
       stuck step, server restart mid-pipeline
 - [ ] #32 `[FE]` Re-check against `docs/app-demo.html` — cover everything it does
 - [ ] #33 `[DOCS]` `DECISIONS.md` has ≥4 entries, ≥3 AI overrides, closing "one more
