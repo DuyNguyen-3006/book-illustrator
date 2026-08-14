@@ -1,6 +1,7 @@
 package com.bookillustrator.interfaces.rest.controller;
 
 import com.bookillustrator.application.port.output.GeminiGateway;
+import com.bookillustrator.application.port.output.ImageStorage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
@@ -16,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -24,6 +27,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,6 +52,10 @@ class ProjectControllerTest {
 
     @MockBean
     private GeminiGateway geminiGateway;
+
+    /** Real local storage — the image round-trip is the thing under test here. */
+    @Autowired
+    private ImageStorage imageStorage;
 
     @AfterEach
     void cleanUp() {
@@ -345,6 +353,88 @@ class ProjectControllerTest {
     }
 
     @Test
+    void portraitDownloadsTheStoredImageForTheOwner() throws Exception {
+        MockHttpSession session = loggedInSession();
+        long projectId = createProject(session, "Portrait Download");
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G'};
+        long characterId = insertCharacterWithPortrait(projectId, "Mole", imageStorage.save(png, "image/png"));
+
+        mockMvc.perform(get("/projects/" + projectId + "/characters/" + characterId + "/portrait")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(png));
+    }
+
+    @Test
+    void portraitOfACharacterWithoutOneYetIs404() throws Exception {
+        MockHttpSession session = loggedInSession();
+        long projectId = createProject(session, "Portrait Missing");
+        long characterId = insertCharacterWithPortrait(projectId, "Mole", null);
+
+        mockMvc.perform(get("/projects/" + projectId + "/characters/" + characterId + "/portrait")
+                        .session(session))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value("error"))
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void portraitOfAnotherUsersProjectIs404NotForbidden() throws Exception {
+        MockHttpSession ownerSession = loggedInSession();
+        long projectId = createProject(ownerSession, "Someone Elses Portrait");
+        long characterId = insertCharacterWithPortrait(
+                projectId, "Mole", imageStorage.save(new byte[]{1, 2, 3}, "image/png"));
+
+        mockMvc.perform(get("/projects/" + projectId + "/characters/" + characterId + "/portrait")
+                        .session(loggedInSession(OTHER_EMAIL)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void portraitUnauthenticatedReturns401() throws Exception {
+        MockHttpSession session = loggedInSession();
+        long projectId = createProject(session, "Portrait Unauthenticated");
+        long characterId = insertCharacterWithPortrait(projectId, "Mole", null);
+
+        mockMvc.perform(get("/projects/" + projectId + "/characters/" + characterId + "/portrait"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void detailExposesImageUrlsNotServerFilesystemPaths() throws Exception {
+        MockHttpSession session = loggedInSession();
+        long projectId = createProject(session, "Image Urls");
+        long characterId = insertCharacterWithPortrait(
+                projectId, "Mole", imageStorage.save(new byte[]{1}, "image/png"));
+        long withoutPortrait = insertCharacterWithPortrait(projectId, "Rat", null);
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.characters[?(@.id == " + characterId + ")].portraitUrl")
+                        .value("/projects/" + projectId + "/characters/" + characterId + "/portrait"))
+                .andExpect(jsonPath("$.data.characters[?(@.id == " + withoutPortrait + ")].portraitUrl")
+                        .value(contains(nullValue())))
+                .andExpect(jsonPath("$.data.characters[0].portraitImagePath").doesNotExist());
+    }
+
+    private long createProject(MockHttpSession session, String title) throws Exception {
+        mockMvc.perform(post("/projects").session(session).param("title", title).param("bookText", "text"));
+        return jdbcTemplate.queryForObject("SELECT id FROM projects WHERE title = ?", Long.class, title);
+    }
+
+    private long insertCharacterWithPortrait(long projectId, String name, String portraitPath) {
+        jdbcTemplate.update(
+                "INSERT INTO characters (project_id, name, prompt, portrait_image_path, created_at) "
+                        + "VALUES (?, ?, ?, ?, now())",
+                projectId, name, "prompt", portraitPath);
+        return jdbcTemplate.queryForObject(
+                "SELECT id FROM characters WHERE project_id = ? AND name = ?", Long.class, projectId, name);
+    }
+
+    @Test
     void detailOfAFreshProjectHasNoErrorAndNoStepStartTime() throws Exception {
         MockHttpSession session = loggedInSession();
         mockMvc.perform(post("/projects").session(session)
@@ -407,7 +497,7 @@ class ProjectControllerTest {
                 .andExpect(jsonPath("$.data.stepState").value("IDLE"));
 
         mockMvc.perform(get("/projects/" + projectId).session(session))
-                .andExpect(jsonPath("$.data.characters[0].portraitImagePath").isNotEmpty());
+                .andExpect(jsonPath("$.data.characters[0].portraitUrl").isNotEmpty());
     }
 
     @Test
