@@ -33,7 +33,6 @@ export function LandingPage() {
               <Button asChild size="lg">
                 <Link to="/signin">Get started</Link>
               </Button>
-              <span className="text-sm text-muted-foreground">Email and a name. No password.</span>
             </div>
           </div>
 
