@@ -2,17 +2,21 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-// Define button style variants as a constant object (not exported)
+// Restyled onto this project's tokens. Lightswind's own `btn-3d-*` classes come
+// from its plugin and ignore the palette in index.css, so a default-state button
+// would be the library's look rather than the app's.
 const buttonStyles = {
   variant: {
-    default: "btn-3d-default",
-    destructive: "btn-3d-destructive",
-    outline: "btn-3d-outline",
-    secondary: "btn-3d-secondary",
-    ghost: "btn-3d-ghost",
-    link: "btn-3d-link",
-    github: "btn-3d-github",
-    custom: "btn-3d-custom",
+    default:
+      "bg-primary text-primary-foreground hover:bg-primary/90 active:translate-y-[1px] transition-colors",
+    destructive:
+      "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:translate-y-[1px] transition-colors",
+    outline:
+      "border border-input bg-background hover:bg-muted active:translate-y-[1px] transition-colors",
+    secondary:
+      "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:translate-y-[1px] transition-colors",
+    ghost: "hover:bg-muted active:translate-y-[1px] transition-colors",
+    link: "text-primary underline-offset-4 hover:underline",
     unstyled: "",
   },
   size: {
