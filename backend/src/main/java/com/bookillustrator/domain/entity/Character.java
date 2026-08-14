@@ -70,4 +70,8 @@ public class Character {
     public String getPortraitImagePath() {
         return portraitImagePath;
     }
+
+    public void recordPortrait(String portraitImagePath) {
+        this.portraitImagePath = portraitImagePath;
+    }
 }

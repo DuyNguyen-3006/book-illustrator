@@ -244,3 +244,40 @@ use case — both driven by an actual second occurrence, not upfront guessing.
 
 Cost: the AI held the line on not closing #15 without live confirmation even
 though nothing forced it to — that's the behavior I want repeated for #16–18.
+
+---
+
+## 10. Portraits (#16) blocked on the image model's free tier — coded and tested, not closed
+
+Live-testing #16 hit a harder wall than #14/#15's depleted-credits error: the
+image model (`gemini-3.1-flash-lite-image`) returns `429`, `limit: 0` on the
+free tier — not a temporary throttle, a genuine zero-quota gate, most likely
+requiring billing to be enabled specifically (image generation is generally
+not covered by Gemini's free tier at all, separate from the text models). I
+asked the AI whether switching to a different image model would sidestep
+this; it talked me out of it — explained that a $0 free-tier limit is
+typically an account/billing-tier restriction that applies across image
+models, not a quirk of this specific one, so swapping models would likely
+just hit the same wall while also deviating from the model CLAUDE.md §1
+already locked in from the notebook run. Correct call not to burn time on a
+model swap without evidence it'd help.
+
+Followed the same path as #15: code + unit-test the whole step against a
+mocked `GeminiClient`, do not close the issue or check it off in
+`docs/tasks.md` until a real call confirms the image response shape (nested
+in `steps[].content[]`, guessed from the same pattern #14 already proved for
+text — not confirmed, the docs' claimed top-level `output_image` field is not
+trusted at face value given they were already wrong once for the analogous
+text case).
+
+The AI's own review caught a third occurrence of a bug class from #14/#15
+during this issue too: local image-disk-write failures (after a successful
+Gemini call) weren't inside the classified-failure boundary, so a disk error
+would've left the step stuck RUNNING with a raw 500 instead of a persisted,
+retriable failure. Fixed by widening the try/catch to cover the save loop,
+same reasoning as the previous two fixes.
+
+Cost: this is now the second issue in a row where "done" waits on
+infrastructure outside my control (Gemini credits/quota), not on the code
+being ready. Recording this pattern because it'll likely repeat for #17/#18 —
+the code-review and unit-test bar isn't the bottleneck, live API access is.

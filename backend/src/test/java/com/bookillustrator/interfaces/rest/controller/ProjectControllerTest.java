@@ -340,6 +340,34 @@ class ProjectControllerTest {
     }
 
     @Test
+    void runStepGeneratesPortraitsAndAdvancesToChapters() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Portraits Step Test").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Portraits Step Test'", Long.class);
+        jdbcTemplate.update("UPDATE projects SET current_step = 'PORTRAITS' WHERE id = ?", projectId);
+        jdbcTemplate.update(
+                "INSERT INTO characters (project_id, name, prompt) VALUES (?, 'Alice', 'a curious young woman')",
+                projectId);
+        long characterId = jdbcTemplate.queryForObject(
+                "SELECT id FROM characters WHERE project_id = ?", Long.class, projectId);
+        when(geminiGateway.generatePortraits(any())).thenReturn(new GeminiGateway.PortraitsGenerationResult(
+                List.of(new GeminiGateway.PortraitResult(characterId, new byte[]{1, 2, 3}, "image/png")),
+                "img-interaction-1"));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.currentStep").value("CHAPTERS"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"));
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(jsonPath("$.data.characters[0].portraitImagePath").isNotEmpty());
+    }
+
+    @Test
     void runStepUnauthenticatedReturns401() throws Exception {
         mockMvc.perform(post("/projects/1/run-step")
                         .contentType("application/json").content("{}"))

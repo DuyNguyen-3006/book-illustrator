@@ -26,6 +26,7 @@ import static org.mockito.Mockito.when;
 class GeminiGatewayAdapterTest {
 
     private static final String MODEL = "gemini-3.6-flash";
+    private static final String IMAGE_MODEL = "gemini-3.1-flash-lite-image";
 
     @Mock
     private GeminiClient client;
@@ -33,7 +34,7 @@ class GeminiGatewayAdapterTest {
     private GeminiGatewayAdapter adapter;
 
     private GeminiGatewayAdapter adapter() {
-        return new GeminiGatewayAdapter(client, MODEL, new ObjectMapper());
+        return new GeminiGatewayAdapter(client, MODEL, IMAGE_MODEL, new ObjectMapper());
     }
 
     @Test
@@ -153,5 +154,61 @@ class GeminiGatewayAdapterTest {
         ArgumentCaptor<Map<String, Object>> schemaCaptor = ArgumentCaptor.forClass(Map.class);
         verify(client).createInteraction(eq(MODEL), any(), eq("previous-id"), schemaCaptor.capture());
         assertThat(schemaCaptor.getValue()).containsEntry("type", "array");
+    }
+
+    @Test
+    void generatePortraitsChainsOneCallPerCharacterAndReturnsEachImage() {
+        adapter = adapter();
+        byte[] image1 = {1, 2, 3};
+        byte[] image2 = {4, 5, 6};
+        when(client.createImageInteraction(eq(IMAGE_MODEL), any(), isNull()))
+                .thenReturn(new GeminiClient.ImageInteractionResult("img-1", image1, "image/png"));
+        when(client.createImageInteraction(eq(IMAGE_MODEL), any(), eq("img-1")))
+                .thenReturn(new GeminiClient.ImageInteractionResult("img-2", image2, "image/png"));
+
+        GeminiGateway.PortraitsGenerationResult result = adapter.generatePortraits(
+                new GeminiGateway.PortraitsGenerationRequest(
+                        "watercolor storybook",
+                        List.of(new GeminiGateway.CharacterForPortrait(1L, "Alice", "a curious young woman"),
+                                new GeminiGateway.CharacterForPortrait(2L, "The Hatter", "an eccentric man")),
+                        null));
+
+        assertThat(result.interactionId()).isEqualTo("img-2");
+        assertThat(result.portraits()).hasSize(2);
+        assertThat(result.portraits().get(0).characterId()).isEqualTo(1L);
+        assertThat(result.portraits().get(0).imageBytes()).isEqualTo(image1);
+        assertThat(result.portraits().get(1).characterId()).isEqualTo(2L);
+        assertThat(result.portraits().get(1).imageBytes()).isEqualTo(image2);
+    }
+
+    @Test
+    void generatePortraitsSeedsTheFirstCallWithStyle() {
+        adapter = adapter();
+        when(client.createImageInteraction(eq(IMAGE_MODEL), any(), isNull()))
+                .thenReturn(new GeminiClient.ImageInteractionResult("img-1", new byte[0], "image/png"));
+
+        adapter.generatePortraits(new GeminiGateway.PortraitsGenerationRequest(
+                "watercolor storybook",
+                List.of(new GeminiGateway.CharacterForPortrait(1L, "Alice", "a curious young woman")),
+                null));
+
+        ArgumentCaptor<List<Map<String, Object>>> inputCaptor = ArgumentCaptor.forClass(List.class);
+        verify(client).createImageInteraction(eq(IMAGE_MODEL), inputCaptor.capture(), isNull());
+        String text = (String) inputCaptor.getValue().get(0).get("text");
+        assertThat(text).contains("watercolor storybook");
+    }
+
+    @Test
+    void generatePortraitsContinuesAnExistingImageChain() {
+        adapter = adapter();
+        when(client.createImageInteraction(eq(IMAGE_MODEL), any(), eq("existing-chain-id")))
+                .thenReturn(new GeminiClient.ImageInteractionResult("img-1", new byte[0], "image/png"));
+
+        adapter.generatePortraits(new GeminiGateway.PortraitsGenerationRequest(
+                "watercolor storybook",
+                List.of(new GeminiGateway.CharacterForPortrait(1L, "Alice", "a curious young woman")),
+                "existing-chain-id"));
+
+        verify(client).createImageInteraction(eq(IMAGE_MODEL), any(), eq("existing-chain-id"));
     }
 }

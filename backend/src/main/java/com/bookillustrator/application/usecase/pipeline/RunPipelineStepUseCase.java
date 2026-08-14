@@ -17,14 +17,17 @@ public class RunPipelineStepUseCase {
     private final ProjectRepository projectRepository;
     private final RunStyleStepUseCase runStyleStepUseCase;
     private final RunCharactersStepUseCase runCharactersStepUseCase;
+    private final RunPortraitsStepUseCase runPortraitsStepUseCase;
 
     public RunPipelineStepUseCase(
             ProjectRepository projectRepository,
             RunStyleStepUseCase runStyleStepUseCase,
-            RunCharactersStepUseCase runCharactersStepUseCase) {
+            RunCharactersStepUseCase runCharactersStepUseCase,
+            RunPortraitsStepUseCase runPortraitsStepUseCase) {
         this.projectRepository = projectRepository;
         this.runStyleStepUseCase = runStyleStepUseCase;
         this.runCharactersStepUseCase = runCharactersStepUseCase;
+        this.runPortraitsStepUseCase = runPortraitsStepUseCase;
     }
 
     public PipelineStepResult execute(long projectId, long requestingUserId, String userProvidedStyle) {
@@ -35,7 +38,8 @@ public class RunPipelineStepUseCase {
         return switch (project.getCurrentStep()) {
             case STYLE -> runStyleStepUseCase.execute(projectId, requestingUserId, userProvidedStyle);
             case CHARACTERS -> runCharactersStepUseCase.execute(projectId, requestingUserId);
-            case PORTRAITS, CHAPTERS, ILLUSTRATIONS -> throw new IllegalPipelineStateException(
+            case PORTRAITS -> runPortraitsStepUseCase.execute(projectId, requestingUserId);
+            case CHAPTERS, ILLUSTRATIONS -> throw new IllegalPipelineStateException(
                     "step " + project.getCurrentStep() + " isn't implemented yet");
         };
     }

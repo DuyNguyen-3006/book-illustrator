@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,12 +34,17 @@ public class GeminiGatewayAdapter implements GeminiGateway {
 
     private final GeminiClient client;
     private final String textModel;
+    private final String imageModel;
     private final ObjectMapper objectMapper;
 
     public GeminiGatewayAdapter(
-            GeminiClient client, @Value("${gemini.text-model}") String textModel, ObjectMapper objectMapper) {
+            GeminiClient client,
+            @Value("${gemini.text-model}") String textModel,
+            @Value("${gemini.image-model}") String imageModel,
+            ObjectMapper objectMapper) {
         this.client = client;
         this.textModel = textModel;
+        this.imageModel = imageModel;
         this.objectMapper = objectMapper;
     }
 
@@ -97,6 +103,31 @@ public class GeminiGatewayAdapter implements GeminiGateway {
         }
 
         return new CharactersGenerationResult(characters, interaction.id());
+    }
+
+    @Override
+    public PortraitsGenerationResult generatePortraits(PortraitsGenerationRequest request) {
+        String previousInteractionId = request.previousImageInteractionId();
+        List<PortraitResult> portraits = new ArrayList<>();
+
+        boolean first = true;
+        for (CharacterForPortrait character : request.characters()) {
+            String prompt = first
+                    ? "Art style: \"" + request.style() + "\". Generate a portrait for this character: "
+                            + character.name() + " — " + character.prompt() + ". No text, no watermarks, "
+                            + "no signatures, portrait only, consistent with the established art style."
+                    : "Generate a portrait for this character: " + character.name() + " — "
+                            + character.prompt() + ", consistent with the established art style.";
+            first = false;
+
+            GeminiClient.ImageInteractionResult interaction = client.createImageInteraction(
+                    imageModel, List.of(Map.of("type", "text", "text", prompt)), previousInteractionId);
+            previousInteractionId = interaction.id();
+
+            portraits.add(new PortraitResult(character.characterId(), interaction.imageBytes(), interaction.mimeType()));
+        }
+
+        return new PortraitsGenerationResult(portraits, previousInteractionId);
     }
 
     private List<CharacterDraft> parseCharacters(String json) {

@@ -27,9 +27,15 @@ public interface GeminiClient {
             String model, List<Map<String, Object>> input, String previousInteractionId,
             Map<String, Object> responseSchema);
 
+    ImageInteractionResult createImageInteraction(
+            String model, List<Map<String, Object>> input, String previousInteractionId);
+
     record FileRef(String uri, String mimeType) {
     }
 
     record InteractionResult(String id, String outputText) {
+    }
+
+    record ImageInteractionResult(String id, byte[] imageBytes, String mimeType) {
     }
 }
