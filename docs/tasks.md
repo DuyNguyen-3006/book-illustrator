@@ -44,7 +44,7 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       resumes correctly)
 
 ## Milestone 5 — 4. Pipeline steps (wire real Gemini calls one at a time, §2.3 research rule)
-- [ ] #14 `[BE]` Step 1 — Style (user-provided or generated from text)
+- [x] #14 `[BE]` Step 1 — Style (user-provided or generated from text)
 - [ ] #15 `[BE]` Step 2 — Characters, structured JSON, **max 2**, adults only
 - [ ] #16 `[BE]` Step 3 — Portraits, one image per character
 - [ ] #17 `[BE]` Step 4 — Chapters, structured JSON, **max 1**, referencing characters

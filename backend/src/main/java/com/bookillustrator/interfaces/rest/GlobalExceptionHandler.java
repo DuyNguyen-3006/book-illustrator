@@ -2,6 +2,8 @@ package com.bookillustrator.interfaces.rest;
 
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
 import com.bookillustrator.application.usecase.user.IdentifyUserUseCase;
+import com.bookillustrator.domain.exception.GeminiGenerationException;
+import com.bookillustrator.domain.exception.IllegalPipelineStateException;
 import com.bookillustrator.domain.exception.ProjectNotFoundException;
 import com.bookillustrator.interfaces.rest.response.ApiResponse;
 import org.slf4j.Logger;
@@ -40,6 +42,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleProjectNotFound(ProjectNotFoundException e) {
         return ResponseEntity.status(404).body(ApiResponse.error(
                 new ApiResponse.ApiError("NOT_FOUND", "Project not found.", null, false)));
+    }
+
+    @ExceptionHandler(IllegalPipelineStateException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalPipelineState(IllegalPipelineStateException e) {
+        return ResponseEntity.status(409).body(ApiResponse.error(
+                new ApiResponse.ApiError("STEP_STATE_CONFLICT", e.getMessage(), null, false)));
+    }
+
+    @ExceptionHandler(GeminiGenerationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGeminiFailure(GeminiGenerationException e) {
+        // Backend-rules SKILL.md §2's mapping table — the raw provider error never
+        // reaches the client, only this already-classified code/message pair.
+        return ResponseEntity.status(502).body(ApiResponse.error(
+                new ApiResponse.ApiError(e.getCode(), e.getMessage(), null, e.isRetriable())));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

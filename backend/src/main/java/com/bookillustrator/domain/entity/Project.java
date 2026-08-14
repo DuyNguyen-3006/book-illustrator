@@ -70,6 +70,12 @@ public class Project {
     @Column(name = "last_error")
     private String lastError;
 
+    @Column(name = "gemini_book_file_uri")
+    private String geminiBookFileUri;
+
+    @Column(name = "last_text_interaction_id")
+    private String lastTextInteractionId;
+
     @Version
     @Column(nullable = false)
     private Long version;
@@ -150,6 +156,35 @@ public class Project {
 
     public OffsetDateTime getStepStartedAt() {
         return stepStartedAt;
+    }
+
+    public String getGeminiBookFileUri() {
+        return geminiBookFileUri;
+    }
+
+    public String getLastTextInteractionId() {
+        return lastTextInteractionId;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    /**
+     * Records the outcome of a text-generation call for chaining: the book file uri
+     * (set once, the first time this project ever calls Gemini) and the latest
+     * interaction id every subsequent text call chains off of. See pipeline-rules
+     * SKILL.md §5.
+     */
+    public void recordTextInteraction(String bookFileUri, String interactionId) {
+        if (this.geminiBookFileUri == null) {
+            this.geminiBookFileUri = bookFileUri;
+        }
+        this.lastTextInteractionId = interactionId;
+    }
+
+    public void recordStyle(String style) {
+        this.style = style;
     }
 
     // ---- Pipeline state machine — pipeline-rules SKILL.md §1 ----

@@ -1,10 +1,12 @@
 package com.bookillustrator.interfaces.rest.controller;
 
+import com.bookillustrator.application.port.output.GeminiGateway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
@@ -13,6 +15,10 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -21,7 +27,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Requires the docker-compose Postgres running (same pattern as AuthControllerTest) —
- * no mocks for the DB round-trip.
+ * no mocks for the DB round-trip. GeminiGateway IS mocked — no real Gemini calls in the
+ * automated suite, ever (backend-rules SKILL.md §3); the real REST integration is
+ * covered by a manual live run against the real API, not by this suite.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,6 +43,9 @@ class ProjectControllerTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @MockBean
+    private GeminiGateway geminiGateway;
 
     @AfterEach
     void cleanUp() {
@@ -243,5 +254,69 @@ class ProjectControllerTest {
         mockMvc.perform(get("/projects/abc").session(session))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("INVALID_INPUT"));
+    }
+
+    @Test
+    void runStepGeneratesStyleAndAdvancesToCharacters() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Run Step Test").param("bookText", "Once upon a time..."));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Run Step Test'", Long.class);
+        when(geminiGateway.generateStyle(any())).thenReturn(
+                new GeminiGateway.StyleGenerationResult("Watercolor storybook", "files/book-uri", "interaction-1"));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.currentStep").value("CHARACTERS"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"))
+                .andExpect(jsonPath("$.data.style").value("Watercolor storybook"));
+    }
+
+    @Test
+    void runStepReturnsLoadingWithoutCallingGeminiWhenAlreadyRunning() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Already Running").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Already Running'", Long.class);
+        jdbcTemplate.update(
+                "UPDATE projects SET step_state = 'RUNNING', step_started_at = now() WHERE id = ?", projectId);
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("loading"))
+                .andExpect(jsonPath("$.data.currentStep").value("STYLE"));
+        verify(geminiGateway, never()).generateStyle(any());
+    }
+
+    @Test
+    void runStepPropagatesAClassifiedGeminiFailureAs502() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Gemini Fails").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Gemini Fails'", Long.class);
+        when(geminiGateway.generateStyle(any())).thenThrow(
+                org.springframework.web.client.HttpServerErrorException.create(
+                        org.springframework.http.HttpStatusCode.valueOf(503), "Service Unavailable",
+                        null, null, null));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error.code").value("UPSTREAM_ERROR"));
+    }
+
+    @Test
+    void runStepUnauthenticatedReturns401() throws Exception {
+        mockMvc.perform(post("/projects/1/run-step")
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+        verify(geminiGateway, never()).generateStyle(any());
     }
 }

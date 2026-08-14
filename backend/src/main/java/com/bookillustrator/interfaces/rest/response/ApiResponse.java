@@ -15,5 +15,10 @@ public record ApiResponse<T>(String status, T data, ApiError error) {
         return new ApiResponse<>("error", null, error);
     }
 
+    /** A step is still running — spec §4.3: the UI must show which step, not a bare spinner. */
+    public static <T> ApiResponse<T> loading(T data) {
+        return new ApiResponse<>("loading", data, null);
+    }
+
     public record ApiError(String code, String message, Object details, boolean retriable) {}
 }

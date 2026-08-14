@@ -6,6 +6,12 @@ storage:
   # S3/blob storage). Relative to the app's working directory unless overridden.
   root: ${STORAGE_ROOT:./data}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  # Confirmed present under this key via a real GET /v1beta/models call (issue #14).
+  text-model: gemini-3.6-flash
+  image-model: gemini-3.1-flash-lite-image
+
 spring:
   servlet:
     multipart:
