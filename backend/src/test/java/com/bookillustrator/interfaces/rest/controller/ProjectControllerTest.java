@@ -11,6 +11,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.List;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ProjectControllerTest {
 
     private static final String TEST_EMAIL = "project-controller-test@test.local";
+    private static final String OTHER_EMAIL = "project-controller-test-other@test.local";
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,15 +38,21 @@ class ProjectControllerTest {
 
     @AfterEach
     void cleanUp() {
-        jdbcTemplate.update(
-                "DELETE FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?)", TEST_EMAIL);
-        jdbcTemplate.update("DELETE FROM users WHERE email = ?", TEST_EMAIL);
+        for (String email : List.of(TEST_EMAIL, OTHER_EMAIL)) {
+            jdbcTemplate.update(
+                    "DELETE FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?)", email);
+            jdbcTemplate.update("DELETE FROM users WHERE email = ?", email);
+        }
     }
 
     private MockHttpSession loggedInSession() throws Exception {
+        return loggedInSession(TEST_EMAIL);
+    }
+
+    private MockHttpSession loggedInSession(String email) throws Exception {
         MvcResult result = mockMvc.perform(post("/session")
                         .contentType("application/json")
-                        .content("{\"email\":\"" + TEST_EMAIL + "\",\"name\":\"Test User\"}"))
+                        .content("{\"email\":\"" + email + "\",\"name\":\"Test User\"}"))
                 .andReturn();
         return (MockHttpSession) result.getRequest().getSession(false);
     }
@@ -173,5 +182,66 @@ class ProjectControllerTest {
         mockMvc.perform(get("/projects"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void detailReturnsFullProjectForTheOwner() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Detail Test").param("bookText", "Once upon a time..."));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Detail Test'", Long.class);
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.title").value("Detail Test"))
+                .andExpect(jsonPath("$.data.bookText").value("Once upon a time..."))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.currentStep").value("STYLE"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"))
+                .andExpect(jsonPath("$.data.characters").isArray())
+                .andExpect(jsonPath("$.data.characters").isEmpty())
+                .andExpect(jsonPath("$.data.chapters").isArray())
+                .andExpect(jsonPath("$.data.chapters").isEmpty());
+    }
+
+    @Test
+    void detailReturns404ForAnotherUsersProject() throws Exception {
+        MockHttpSession ownerSession = loggedInSession();
+        mockMvc.perform(post("/projects").session(ownerSession)
+                .param("title", "Not Yours").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Not Yours'", Long.class);
+
+        MockHttpSession otherSession = loggedInSession(OTHER_EMAIL);
+        mockMvc.perform(get("/projects/" + projectId).session(otherSession))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void detailReturns404ForNonexistentProject() throws Exception {
+        MockHttpSession session = loggedInSession();
+
+        mockMvc.perform(get("/projects/999999999").session(session))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    }
+
+    @Test
+    void detailUnauthenticatedReturns401() throws Exception {
+        mockMvc.perform(get("/projects/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void detailWithNonNumericIdReturns400NotServerError() throws Exception {
+        MockHttpSession session = loggedInSession();
+
+        mockMvc.perform(get("/projects/abc").session(session))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_INPUT"));
     }
 }

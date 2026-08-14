@@ -1,0 +1,23 @@
+package com.bookillustrator.infrastructure.persistence;
+
+import com.bookillustrator.application.port.output.ChapterRepository;
+import com.bookillustrator.domain.entity.Chapter;
+import com.bookillustrator.infrastructure.persistence.repository.ChapterJpaRepository;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
+public class ChapterRepositoryAdapter implements ChapterRepository {
+
+    private final ChapterJpaRepository jpaRepository;
+
+    public ChapterRepositoryAdapter(ChapterJpaRepository jpaRepository) {
+        this.jpaRepository = jpaRepository;
+    }
+
+    @Override
+    public List<Chapter> findByProjectId(long projectId) {
+        return jpaRepository.findByProjectId(projectId);
+    }
+}

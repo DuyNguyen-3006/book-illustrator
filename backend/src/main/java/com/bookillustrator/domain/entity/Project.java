@@ -124,4 +124,8 @@ public class Project {
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
+
+    public String getStyle() {
+        return style;
+    }
 }
