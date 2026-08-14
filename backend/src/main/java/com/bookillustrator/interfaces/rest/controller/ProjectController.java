@@ -1,8 +1,10 @@
 package com.bookillustrator.interfaces.rest.controller;
 
+import com.bookillustrator.application.port.output.ImageStorage;
 import com.bookillustrator.application.usecase.pipeline.PipelineStepResult;
 import com.bookillustrator.application.usecase.pipeline.RunPipelineStepUseCase;
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
+import com.bookillustrator.application.usecase.project.GetGeneratedImageUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectsUseCase;
 import com.bookillustrator.interfaces.rest.request.RunStepRequest;
@@ -13,6 +15,7 @@ import com.bookillustrator.interfaces.rest.response.ProjectSummaryResponse;
 import com.bookillustrator.interfaces.rest.response.RunStepResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +30,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/projects")
@@ -37,13 +41,16 @@ public class ProjectController {
     private final CreateProjectUseCase createProjectUseCase;
     private final GetProjectsUseCase getProjectsUseCase;
     private final GetProjectUseCase getProjectUseCase;
+    private final GetGeneratedImageUseCase getGeneratedImageUseCase;
     private final RunPipelineStepUseCase runPipelineStepUseCase;
 
     public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase,
-                              GetProjectUseCase getProjectUseCase, RunPipelineStepUseCase runPipelineStepUseCase) {
+                              GetProjectUseCase getProjectUseCase, GetGeneratedImageUseCase getGeneratedImageUseCase,
+                              RunPipelineStepUseCase runPipelineStepUseCase) {
         this.createProjectUseCase = createProjectUseCase;
         this.getProjectsUseCase = getProjectsUseCase;
         this.getProjectUseCase = getProjectUseCase;
+        this.getGeneratedImageUseCase = getGeneratedImageUseCase;
         this.runPipelineStepUseCase = runPipelineStepUseCase;
     }
 
@@ -56,8 +63,7 @@ public class ProjectController {
 
         Long userId = authenticatedUserId(session);
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
-                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+            return unauthenticated();
         }
 
         String resolvedText;
@@ -77,8 +83,7 @@ public class ProjectController {
     public ResponseEntity<ApiResponse<List<ProjectSummaryResponse>>> list(HttpSession session) {
         Long userId = authenticatedUserId(session);
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
-                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+            return unauthenticated();
         }
 
         List<ProjectSummaryResponse> projects = getProjectsUseCase.execute(userId).stream()
@@ -92,12 +97,51 @@ public class ProjectController {
             @PathVariable("id") long id, HttpSession session) {
         Long userId = authenticatedUserId(session);
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
-                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+            return unauthenticated();
         }
 
         GetProjectUseCase.Result result = getProjectUseCase.execute(id, userId);
         return ResponseEntity.ok(ApiResponse.success(ProjectDetailResponse.from(result)));
+    }
+
+    @GetMapping("/{id}/characters/{characterId}/portrait")
+    public ResponseEntity<?> portrait(@PathVariable("id") long id,
+                                       @PathVariable("characterId") long characterId,
+                                       HttpSession session) {
+        Long userId = authenticatedUserId(session);
+        if (userId == null) {
+            return unauthenticated();
+        }
+        return imageOrNotFound(getGeneratedImageUseCase.portrait(id, characterId, userId));
+    }
+
+    @GetMapping("/{id}/chapters/{chapterId}/illustration")
+    public ResponseEntity<?> illustration(@PathVariable("id") long id,
+                                           @PathVariable("chapterId") long chapterId,
+                                           HttpSession session) {
+        Long userId = authenticatedUserId(session);
+        if (userId == null) {
+            return unauthenticated();
+        }
+        return imageOrNotFound(getGeneratedImageUseCase.illustration(id, chapterId, userId));
+    }
+
+    /**
+     * Image bytes on success; on a miss the usual envelope, because "not generated yet"
+     * is something the frontend reads, not a broken image.
+     */
+    private static ResponseEntity<?> imageOrNotFound(Optional<ImageStorage.StoredImage> image) {
+        return image
+                .<ResponseEntity<?>>map(stored -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(stored.mimeType()))
+                        .body(stored.bytes()))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error(
+                        new ApiResponse.ApiError("NOT_FOUND", "That image has not been generated yet.", null, false))));
+    }
+
+    private static <T> ResponseEntity<ApiResponse<T>> unauthenticated() {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
+                new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
     }
 
     @PostMapping("/{id}/run-step")
@@ -107,8 +151,7 @@ public class ProjectController {
             HttpSession session) {
         Long userId = authenticatedUserId(session);
         if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
-                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+            return unauthenticated();
         }
 
         String style = request == null ? null : request.style();
