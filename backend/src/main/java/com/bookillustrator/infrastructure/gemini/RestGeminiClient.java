@@ -85,16 +85,28 @@ public class RestGeminiClient implements GeminiClient {
      * (camelCase), this response is snake_case, and there is no top-level
      * {@code output_text} field — the model's reply is the {@code content[0].text} of
      * whichever entry in {@code steps} has {@code type == "model_output"} (other steps,
-     * e.g. {@code type == "thought"}, are not the answer).
+     * e.g. {@code type == "thought"}, are not the answer). When a schema is supplied,
+     * that same text field holds a JSON string instead of prose.
+     *
+     * {@code response_format} shape ({@code {type, mime_type, schema}}) confirmed live
+     * 2026-08-14 (issue #15) — a real structured-output call for the Characters step
+     * returned a well-formed JSON array matching the requested schema.
      */
     @Override
     public InteractionResult createInteraction(
-            String model, List<Map<String, Object>> input, String previousInteractionId) {
+            String model, List<Map<String, Object>> input, String previousInteractionId,
+            Map<String, Object> responseSchema) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("input", input);
         if (previousInteractionId != null) {
             body.put("previous_interaction_id", previousInteractionId);
+        }
+        if (responseSchema != null) {
+            body.put("response_format", Map.of(
+                    "type", "text",
+                    "mime_type", "application/json",
+                    "schema", responseSchema));
         }
 
         Map<String, Object> response = restClient.post()

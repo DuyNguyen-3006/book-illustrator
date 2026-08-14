@@ -13,7 +13,19 @@ public interface GeminiClient {
 
     FileRef uploadTextFile(String content, String displayName);
 
-    InteractionResult createInteraction(String model, List<Map<String, Object>> input, String previousInteractionId);
+    /** Plain-text reply — no response schema. */
+    default InteractionResult createInteraction(
+            String model, List<Map<String, Object>> input, String previousInteractionId) {
+        return createInteraction(model, input, previousInteractionId, null);
+    }
+
+    /**
+     * @param responseSchema JSON Schema the reply must comply with (structured output),
+     *                       or null for a plain-text reply.
+     */
+    InteractionResult createInteraction(
+            String model, List<Map<String, Object>> input, String previousInteractionId,
+            Map<String, Object> responseSchema);
 
     record FileRef(String uri, String mimeType) {
     }

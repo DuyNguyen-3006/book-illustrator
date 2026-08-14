@@ -1,6 +1,8 @@
 package com.bookillustrator.infrastructure.gemini;
 
 import com.bookillustrator.application.port.output.GeminiGateway;
+import com.bookillustrator.domain.exception.GeminiGenerationException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -30,7 +33,7 @@ class GeminiGatewayAdapterTest {
     private GeminiGatewayAdapter adapter;
 
     private GeminiGatewayAdapter adapter() {
-        return new GeminiGatewayAdapter(client, MODEL);
+        return new GeminiGatewayAdapter(client, MODEL, new ObjectMapper());
     }
 
     @Test
@@ -93,5 +96,62 @@ class GeminiGatewayAdapterTest {
         verify(client).createInteraction(eq(MODEL), inputCaptor.capture(), eq("previous-id"));
         String text = (String) inputCaptor.getValue().get(0).get("text");
         assertThat(text).contains("watercolor storybook");
+    }
+
+    @Test
+    void generateCharactersParsesTheStructuredJsonReply() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("interaction-5",
+                        "[{\"name\":\"Alice\",\"prompt\":\"a curious young woman\"},"
+                                + "{\"name\":\"The Mad Hatter\",\"prompt\":\"an eccentric man\"}]"));
+
+        GeminiGateway.CharactersGenerationResult result = adapter.generateCharacters(
+                new GeminiGateway.CharactersGenerationRequest("previous-id"));
+
+        assertThat(result.interactionId()).isEqualTo("interaction-5");
+        assertThat(result.characters()).containsExactly(
+                new GeminiGateway.CharacterDraft("Alice", "a curious young woman"),
+                new GeminiGateway.CharacterDraft("The Mad Hatter", "an eccentric man"));
+    }
+
+    @Test
+    void generateCharactersRejectsMoreThanTwo() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("id",
+                        "[{\"name\":\"A\",\"prompt\":\"p\"},{\"name\":\"B\",\"prompt\":\"p\"},"
+                                + "{\"name\":\"C\",\"prompt\":\"p\"}]"));
+
+        assertThatThrownBy(() -> adapter.generateCharacters(
+                new GeminiGateway.CharactersGenerationRequest("previous-id")))
+                .isInstanceOf(GeminiGenerationException.class)
+                .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
+    }
+
+    @Test
+    void generateCharactersRejectsUnparsableOutput() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("id", "not json"));
+
+        assertThatThrownBy(() -> adapter.generateCharacters(
+                new GeminiGateway.CharactersGenerationRequest("previous-id")))
+                .isInstanceOf(GeminiGenerationException.class)
+                .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
+    }
+
+    @Test
+    void generateCharactersSendsTheJsonSchemaInTheRequest() {
+        adapter = adapter();
+        when(client.createInteraction(eq(MODEL), any(), eq("previous-id"), any()))
+                .thenReturn(new GeminiClient.InteractionResult("id", "[]"));
+
+        adapter.generateCharacters(new GeminiGateway.CharactersGenerationRequest("previous-id"));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> schemaCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(client).createInteraction(eq(MODEL), any(), eq("previous-id"), schemaCaptor.capture());
+        assertThat(schemaCaptor.getValue()).containsEntry("type", "array");
     }
 }

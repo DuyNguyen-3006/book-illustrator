@@ -1,14 +1,18 @@
 package com.bookillustrator.application.port.output;
 
+import java.util.List;
+
 /**
  * Business-level Gemini operations — pipeline use cases depend on this, never on the
- * REST client directly. See docs/architecture.md §12. Only generateStyle exists so
- * far (one vertical slice at a time, #19); generateCharacters/generatePortrait/
- * generateChapters/generateIllustration get added as #15-18 land.
+ * REST client directly. See docs/architecture.md §12. generatePortrait/
+ * generateChapters/generateIllustration get added as #16-18 land (one vertical slice
+ * at a time).
  */
 public interface GeminiGateway {
 
     StyleGenerationResult generateStyle(StyleGenerationRequest request);
+
+    CharactersGenerationResult generateCharacters(CharactersGenerationRequest request);
 
     /**
      * @param bookText            full book text — only actually sent if this is the
@@ -25,5 +29,18 @@ public interface GeminiGateway {
     }
 
     record StyleGenerationResult(String style, String bookFileUri, String interactionId) {
+    }
+
+    /**
+     * No book text/file needed — the text chain (previousInteractionId) already carries
+     * the book and the established style forward (pipeline-rules SKILL.md §5).
+     */
+    record CharactersGenerationRequest(String previousInteractionId) {
+    }
+
+    record CharacterDraft(String name, String prompt) {
+    }
+
+    record CharactersGenerationResult(List<CharacterDraft> characters, String interactionId) {
     }
 }

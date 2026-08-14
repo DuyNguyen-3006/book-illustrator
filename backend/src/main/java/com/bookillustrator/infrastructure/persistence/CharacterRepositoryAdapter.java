@@ -20,4 +20,9 @@ public class CharacterRepositoryAdapter implements CharacterRepository {
     public List<Character> findByProjectId(long projectId) {
         return jpaRepository.findByProjectId(projectId);
     }
+
+    @Override
+    public List<Character> saveAll(List<Character> characters) {
+        return jpaRepository.saveAll(characters);
+    }
 }

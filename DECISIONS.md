@@ -211,3 +211,36 @@ actually caught these. Recording as a decision because it changes how I'll
 treat "tests pass" for #15–18: mocked tests verify the classification and
 state-machine logic, but the wire-format assumptions underneath them still
 need one live call each before I trust them.
+
+---
+
+## 9. Characters step (#15) built and tested against mocks first, live-verified once Gemini credits came back
+
+Partway through #14's live testing, the Gemini key ran out of prepayment
+credits entirely (`too_many_requests` / "prepayment credits are depleted" on
+every call, not a per-minute throttle). I chose to have the AI keep going on
+#15 — write the structured-output code, unit-test it against a mocked
+`GeminiClient` as usual — but explicitly hold off marking #15 done until a
+real call could confirm the `response_format` shape, rather than trust the
+docs alone a third time. Credits came back before #15's code was finished, so
+the live check did run: a real structured-output call returned two well-formed
+characters matching the requested JSON schema on the first try, plus a real
+concurrent-duplicate-call race (one call wins, one reports "loading", exactly
+2 character rows land, not 4).
+
+The AI also caught a second-order bug during its own review, not from a live
+failure: Characters writes to a child table (`characters`) *before* the
+project row advances, unlike Style which only ever touches one row. Those were
+two separate, non-atomic saves — a crash between them would leave orphaned
+character rows, and a reclaimed retry would then add *more* on top, breaking
+the hard 2-character cap. Fixed by wrapping just that tail-end persistence in
+a manually-built `TransactionTemplate`, deliberately *not* wrapping the whole
+step (that would hold a transaction open across the Gemini call itself, which
+`PostgresPipelineLock`'s own design explicitly rules out). Also extracted a
+shared `PipelineStepResult` type once a second step-runner existed, and added
+a small `RunPipelineStepUseCase` dispatcher so `POST /run-step` routes by the
+project's current step instead of the controller hardcoding one step's
+use case — both driven by an actual second occurrence, not upfront guessing.
+
+Cost: the AI held the line on not closing #15 without live confirmation even
+though nothing forced it to — that's the behavior I want repeated for #16–18.
