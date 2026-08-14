@@ -2,9 +2,12 @@ package com.bookillustrator.domain.entity;
 
 import com.bookillustrator.domain.enums.PipelineStep;
 import com.bookillustrator.domain.enums.ProjectStatus;
+import com.bookillustrator.domain.enums.ResumeAction;
 import com.bookillustrator.domain.enums.StepState;
 import com.bookillustrator.domain.exception.IllegalPipelineStateException;
 import org.junit.jupiter.api.Test;
+
+import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -121,6 +124,57 @@ class ProjectTest {
         assertThat(project.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
         assertThat(project.getCurrentStep()).isEqualTo(PipelineStep.ILLUSTRATIONS);
     }
+
+    @Test
+    void resumeActionIsStartWhileIdle() {
+        Project project = newProject();
+
+        assertThat(project.resumeAction(OffsetDateTime.now())).isEqualTo(ResumeAction.START);
+    }
+
+    @Test
+    void resumeActionIsAdvanceOnceCompleted() {
+        Project project = newProject();
+        project.startStep();
+        project.completeStep();
+
+        assertThat(project.resumeAction(OffsetDateTime.now())).isEqualTo(ResumeAction.ADVANCE);
+    }
+
+    @Test
+    void resumeActionIsSurfaceErrorWhileFailed() {
+        Project project = newProject();
+        project.startStep();
+        project.failStep("gemini timed out");
+
+        assertThat(project.resumeAction(OffsetDateTime.now())).isEqualTo(ResumeAction.SURFACE_ERROR);
+    }
+
+    @Test
+    void resumeActionIsInProgressWhileRunningWithinTheTtl() {
+        Project project = newProject();
+        project.startStep();
+
+        OffsetDateTime justAfterStarting = project.getStepStartedAt().plusSeconds(5);
+
+        assertThat(project.resumeAction(justAfterStarting)).isEqualTo(ResumeAction.IN_PROGRESS);
+    }
+
+    /** The literal "kill mid-step, reload, resumes correctly" scenario from #13. */
+    @Test
+    void resumeActionIsReclaimAndRestartWhenTheRunningStepIsPastTheTtl() {
+        Project project = newProject();
+        project.startStep();
+
+        OffsetDateTime wellPastTheTtl = project.getStepStartedAt().plus(Project.LOCK_TTL).plusSeconds(1);
+
+        assertThat(project.resumeAction(wellPastTheTtl)).isEqualTo(ResumeAction.RECLAIM_AND_RESTART);
+    }
+
+    // A RUNNING step with a null step_started_at isn't reachable through this class's
+    // own API anymore (startStep() always sets it) — only via a raw DB row that
+    // predates that guarantee or was written outside the domain model. See
+    // ProjectResumeTest.reloadingARunningStepWithNoStartedAtIsTreatedAsStale for that.
 
     @Test
     void cannotSkipAStepStateResetsToIdleOnAdvance() {

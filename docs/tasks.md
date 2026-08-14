@@ -40,7 +40,7 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       `.claude/skills/pipeline-rules/SKILL.md` §1
 - [x] #12 `[BE]` Per-`(project_id, step_id)` lock with TTL, per pipeline-rules §2
       (unit-test: two concurrent triggers → exactly one call) — already satisfied by #6
-- [ ] #13 `[BE]` Resume logic per pipeline-rules §3 (unit-test: kill mid-step, reload,
+- [x] #13 `[BE]` Resume logic per pipeline-rules §3 (unit-test: kill mid-step, reload,
       resumes correctly)
 
 ## Milestone 5 — 4. Pipeline steps (wire real Gemini calls one at a time, §2.3 research rule)
