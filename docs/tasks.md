@@ -64,12 +64,12 @@ Backend gaps found while planning the frontend — these block FE screens, so th
 
 - [x] #20 `[FE]` Identity screen (name + email, validation)
 - [x] #21 `[FE]` Project list: status pill, 5-step progress indicator, empty state
-- [ ] #22 `[FE]` New project: title, paste-or-upload `.txt`, validation
-- [ ] #23 `[FE]` Project detail: stepper, book text view, style, character cards,
+- [x] #22 `[FE]` New project: title, paste-or-upload `.txt`, validation
+- [x] #23 `[FE]` Project detail: stepper, book text view, style, character cards,
       chapter cards, action button, per-item portrait/illustration progress
-- [ ] #24 `[FE]` In-progress state naming the running step; error state + retry button;
+- [x] #24 `[FE]` In-progress state naming the running step; error state + retry button;
       stuck-step recovery affordance
-- [ ] #25 `[FE]` Sign out
+- [x] #25 `[FE]` Sign out
 
 ## Milestone 7 — 6. Tests and docs
 - [x] #26 `[BE]` Backend tests: step ordering, progress, retry (per backend-rules
