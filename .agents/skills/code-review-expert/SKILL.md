@@ -7,7 +7,9 @@ description: "Expert code review of current git changes with a senior engineer l
 
 ## Overview
 
-Perform a structured review of the current git changes with focus on SOLID, architecture, removal candidates, and security risks. Default to review-only output unless the user asks to implement changes.
+Perform a structured review of the current git changes with focus on SOLID, architecture, removal candidates, security risks, and over-engineering. Default to review-only output unless the user asks to implement changes.
+
+This project runs the `ponytail` ruleset always-on (see `CLAUDE.md` §3), so every review includes an over-engineering pass — step 6 below. "This code should not exist" is a first-class finding here, ranked and reported like any other.
 
 ## Severity Levels
 
@@ -71,7 +73,34 @@ Perform a structured review of the current git changes with focus on SOLID, arch
   - **Boundary conditions**: null/undefined handling, empty collections, numeric boundaries, off-by-one
 - Flag issues that may cause silent failures or production incidents.
 
-### 6) Output format
+### 6) Over-engineering scan (ponytail)
+
+Walk the `ponytail` ladder over the diff. For every construct the diff introduces — class, interface, module, dependency, config option, abstraction — find the first rung that holds:
+
+1. Does this need to exist at all? If nobody asked for it, delete it.
+2. Does it already exist in this repo? Reuse it, do not rewrite it.
+3. Does the standard library or Spring Boot itself already do it?
+4. Does a native platform feature cover it? (native HTML inputs, HTTP semantics, PostgreSQL constraints)
+5. Does an already-installed dependency solve it?
+6. Can it be one line?
+7. Only then: the minimum that works.
+
+Report what you find with the normal severity levels:
+
+- **P1** — a dependency, framework, or library added outside the closed stack in `CLAUDE.md` §1 (that rule requires asking first, so this blocks); an abstraction that exists only to satisfy a pattern.
+- **P2** — an interface with exactly one implementation and no planned second one; a wrapper that only forwards calls; a config knob nobody sets; speculative generality ("we might need this later"); a hand-rolled utility that duplicates something the stack already provides.
+- **P3** — a helper that could be one line; a file small enough to merge into its only caller; naming or structure that adds a hop without adding meaning.
+
+Never report as over-engineering — these stay even when they look like ceremony:
+
+- Input validation at a trust boundary, and error handling that prevents data loss.
+- Security checks and accessibility basics.
+- The layer boundaries `docs/architecture.md` deliberately requires, and the pipeline locking/state rules in `.claude/skills/pipeline-rules/SKILL.md`.
+- Anything the user explicitly asked to keep.
+
+For a standalone delete-list without the rest of the review, run `/ponytail-review` instead; this step is the same lens folded into the full review.
+
+### 7) Output format
 
 Structure your review as follows:
 
@@ -121,7 +150,7 @@ Description of the issue and suggested fix.
 - Any areas not covered (e.g., "Did not verify database migrations")
 - Residual risks or recommended follow-up tests
 
-### 7) Next steps confirmation
+### 8) Next steps confirmation
 
 After presenting findings, ask user how to proceed:
 

@@ -16,6 +16,7 @@ npx skills add sanyuan0704/sanyuan-skills --path skills/code-review-expert
 - **Error Handling** - Swallowed exceptions, async errors, missing boundaries
 - **Boundary Conditions** - Null handling, empty collections, off-by-one, numeric limits
 - **Removal Planning** - Identify dead code with safe deletion plans
+- **Over-engineering (ponytail)** - Unneeded abstractions, single-implementation interfaces, forwarding wrappers, out-of-stack dependencies
 
 ## Usage
 
@@ -34,8 +35,9 @@ The skill will automatically review your current git changes.
 3. **Removal Candidates** - Find dead/unused code
 4. **Security Scan** - Vulnerability detection
 5. **Code Quality** - Error handling, performance, boundaries
-6. **Output** - Findings by severity (P0-P3)
-7. **Confirmation** - Ask user before implementing fixes
+6. **Over-engineering** - Walk the ponytail ladder over everything the diff introduces
+7. **Output** - Findings by severity (P0-P3)
+8. **Confirmation** - Ask user before implementing fixes
 
 ## Severity Levels
 

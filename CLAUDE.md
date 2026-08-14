@@ -171,6 +171,22 @@ plus ≥3 places you overrode the AI).
 
 ## 3. Skill routing
 
+- **`ponytail`** (always on for this project) — the over-engineering brake. Installed
+  globally, not in this repo (`claude plugin install ponytail@ponytail`; marketplace
+  `DietrichGebert/ponytail`), so nothing about it is committed here. Before writing code,
+  walk its ladder and stop at the first rung that holds: does this need to exist → does it
+  already exist in this repo → stdlib → native platform feature → already-installed
+  dependency → one line → only then the minimum that works. At the REVIEW stage of §2.4 the
+  same ladder runs as step 6 of `code-review-expert`, so over-engineering is reported with
+  the normal P0–P3 severities; `/ponytail-review` stays available for a standalone
+  delete-list. This is the enforcement arm of spec §05 "do not over-engineer" and §07
+  "Right-sized solution".
+  **It never overrides the rules in §2**: it may not add or swap a dependency (§2.1), may
+  not "simplify" a Gemini call into a retry loop (§2.2), may not skip the research step
+  (§2.3), the test-first stage (§2.4), or the small-commit rule (§2.5). It also may not
+  remove input validation at a trust boundary, error handling that prevents data loss,
+  security checks, or accessibility basics. Where ponytail and a project rule disagree, the
+  project rule wins.
 - **`.claude/skills/pipeline-rules/SKILL.md`** — state machine (`status`/`step_state`),
   per-step locking, resume behaviour, the 2 character / 1 chapter caps. Read before
   touching any pipeline-step code.
