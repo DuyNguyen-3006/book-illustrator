@@ -29,6 +29,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -122,7 +124,7 @@ class RunChaptersStepUseCaseTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Chapter>> captor = ArgumentCaptor.forClass(List.class);
-        verify(chapterRepository).saveAll(captor.capture());
+        verify(chapterRepository).replaceForProject(eq(1L), captor.capture());
         Chapter saved = captor.getValue().get(0);
         assertThat(saved.getName()).isEqualTo("The Tea Party");
         assertThat(saved.getCharacterIds()).containsExactly(10L, 11L);
@@ -143,7 +145,7 @@ class RunChaptersStepUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(1L, OWNER_ID))
                 .isInstanceOf(GeminiGenerationException.class)
                 .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
-        verify(chapterRepository, never()).saveAll(any());
+        verify(chapterRepository, never()).replaceForProject(anyLong(), any());
         assertThat(lockedProject.getStepState().name()).isEqualTo("FAILED");
     }
 
@@ -160,7 +162,7 @@ class RunChaptersStepUseCaseTest {
 
         assertThatThrownBy(() -> useCase.execute(1L, OWNER_ID))
                 .isInstanceOf(GeminiGenerationException.class);
-        verify(chapterRepository, never()).saveAll(any());
+        verify(chapterRepository, never()).replaceForProject(anyLong(), any());
     }
 
     @Test

@@ -27,6 +27,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,6 +84,26 @@ class RunCharactersStepUseCaseTest {
     }
 
     @Test
+    void aRerunReplacesTheCharactersItAlreadyWroteRatherThanAddingToThem() {
+        // Found in manual QA (#31): a step reclaimed after being stranded ran again
+        // and appended, leaving 4 characters for a project whose cap is 2 (#43).
+        Project project = onCharactersStep();
+        Project lockedProject = asIfJustAcquired(project);
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project), Optional.of(lockedProject));
+        when(pipelineLock.tryAcquire(1L, "CHARACTERS")).thenReturn(true);
+        when(geminiGateway.generateCharacters(any())).thenReturn(new GeminiGateway.CharactersGenerationResult(
+                List.of(new GeminiGateway.CharacterDraft("Alice", "a curious young woman"),
+                        new GeminiGateway.CharacterDraft("The Mad Hatter", "an eccentric man in a top hat")),
+                "interaction-2"));
+        when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        useCase.execute(1L, OWNER_ID);
+
+        verify(characterRepository).replaceForProject(eq(1L), any());
+        verify(characterRepository, never()).saveAll(any());
+    }
+
+    @Test
     void happyPathGeneratesUpToTwoCharactersAndAdvancesToPortraits() {
         Project project = onCharactersStep();
         Project lockedProject = asIfJustAcquired(project);
@@ -100,7 +122,7 @@ class RunCharactersStepUseCaseTest {
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Character>> captor = ArgumentCaptor.forClass(List.class);
-        verify(characterRepository).saveAll(captor.capture());
+        verify(characterRepository).replaceForProject(eq(1L), captor.capture());
         List<Character> saved = captor.getValue();
         assertThat(saved).hasSize(2);
         assertThat(saved.get(0).getProjectId()).isEqualTo(1L);
@@ -122,7 +144,7 @@ class RunCharactersStepUseCaseTest {
         assertThatThrownBy(() -> useCase.execute(1L, OWNER_ID))
                 .isInstanceOf(GeminiGenerationException.class)
                 .satisfies(e -> assertThat(((GeminiGenerationException) e).getCode()).isEqualTo("INVALID_OUTPUT"));
-        verify(characterRepository, never()).saveAll(any());
+        verify(characterRepository, never()).replaceForProject(anyLong(), any());
         assertThat(lockedProject.getStepState().name()).isEqualTo("FAILED");
     }
 
