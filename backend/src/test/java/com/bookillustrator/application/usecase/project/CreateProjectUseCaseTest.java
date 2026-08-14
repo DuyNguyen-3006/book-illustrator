@@ -106,6 +106,11 @@ class CreateProjectUseCaseTest {
         public java.util.Optional<Project> findById(long id) {
             throw new UnsupportedOperationException("not needed for this test");
         }
+
+        @Override
+        public Project save(Project project) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 
     private static class FailingProjectRepository implements ProjectRepository {
@@ -121,6 +126,11 @@ class CreateProjectUseCaseTest {
 
         @Override
         public List<Project> findByUserId(long userId) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
+
+        @Override
+        public Project save(Project project) {
             throw new UnsupportedOperationException("not needed for this test");
         }
     }

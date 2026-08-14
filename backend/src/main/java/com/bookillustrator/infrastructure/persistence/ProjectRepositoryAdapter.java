@@ -31,4 +31,9 @@ public class ProjectRepositoryAdapter implements ProjectRepository {
     public Optional<Project> findById(long id) {
         return jpaRepository.findById(id);
     }
+
+    @Override
+    public Project save(Project project) {
+        return jpaRepository.save(project);
+    }
 }

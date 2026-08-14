@@ -1,18 +1,22 @@
 package com.bookillustrator.interfaces.rest.controller;
 
+import com.bookillustrator.application.usecase.pipeline.RunStyleStepUseCase;
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectsUseCase;
+import com.bookillustrator.interfaces.rest.request.RunStepRequest;
 import com.bookillustrator.interfaces.rest.response.ApiResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectDetailResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectSummaryResponse;
+import com.bookillustrator.interfaces.rest.response.RunStepResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,12 +36,14 @@ public class ProjectController {
     private final CreateProjectUseCase createProjectUseCase;
     private final GetProjectsUseCase getProjectsUseCase;
     private final GetProjectUseCase getProjectUseCase;
+    private final RunStyleStepUseCase runStyleStepUseCase;
 
     public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase,
-                              GetProjectUseCase getProjectUseCase) {
+                              GetProjectUseCase getProjectUseCase, RunStyleStepUseCase runStyleStepUseCase) {
         this.createProjectUseCase = createProjectUseCase;
         this.getProjectsUseCase = getProjectsUseCase;
         this.getProjectUseCase = getProjectUseCase;
+        this.runStyleStepUseCase = runStyleStepUseCase;
     }
 
     @PostMapping
@@ -91,6 +97,27 @@ public class ProjectController {
 
         GetProjectUseCase.Result result = getProjectUseCase.execute(id, userId);
         return ResponseEntity.ok(ApiResponse.success(ProjectDetailResponse.from(result)));
+    }
+
+    @PostMapping("/{id}/run-step")
+    public ResponseEntity<ApiResponse<RunStepResponse>> runStep(
+            @PathVariable("id") long id,
+            @RequestBody(required = false) RunStepRequest request,
+            HttpSession session) {
+        Long userId = authenticatedUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
+                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+        }
+
+        String style = request == null ? null : request.style();
+        RunStyleStepUseCase.Result result = runStyleStepUseCase.execute(id, userId, style);
+
+        RunStepResponse body = RunStepResponse.from(result.project());
+        // Spec §4.3: the UI must show which step is running, not a bare spinner — the
+        // envelope's own "loading" status (backend-rules §1) carries that, distinct
+        // from "success".
+        return ResponseEntity.ok(result.inProgress() ? ApiResponse.loading(body) : ApiResponse.success(body));
     }
 
     private static Long authenticatedUserId(HttpSession session) {

@@ -104,6 +104,12 @@ class GetProjectUseCaseTest {
         public Optional<Project> findById(long id) {
             return Optional.ofNullable(byId.get(id));
         }
+
+        @Override
+        public Project save(Project project) {
+            byId.put(project.getId(), project);
+            return project;
+        }
     }
 
     private static class FakeBookTextStorage implements BookTextStorage {

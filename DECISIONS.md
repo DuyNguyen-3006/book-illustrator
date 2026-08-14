@@ -172,3 +172,42 @@ map between). `docs/architecture.md` §4/§9 now carry an explicit amendment
 note rather than being silently out of date. Re-verified: 30/30 tests green,
 live Docker end-to-end check again after this change too — not just after
 decision 6's.
+
+---
+
+## 8. Verified the Gemini REST shape against a real, authenticated call before trusting it — the docs alone were wrong twice
+
+Issue #14 (Style step) was the first code to actually call Gemini. Before writing
+`RestGeminiClient`, the AI cross-checked the endpoint shapes against
+ai.google.dev per CLAUDE.md §2.3 and a live `GET /v1beta/models` call confirmed
+the API key and both model names. That was not enough: once I asked it to run
+the real style-generation flow end-to-end (not just the mocked unit tests)
+before calling #14 done, it hit a `NullPointerException` immediately — the
+Files API upload response uses camelCase (`mimeType`), not the `mime_type` the
+written code assumed, and the Interactions API response has no top-level
+`output_text` field at all; the model's reply is nested at
+`steps[].content[].text` on whichever step has `type: "model_output"`. Both
+were confirmed by running the raw `curl` calls directly against Gemini (inside
+the app container, so the real API key was never printed to a log) and reading
+the actual JSON back, not by re-reading documentation. Fixed both in
+`RestGeminiClient`.
+
+The same live run surfaced a second, more serious gap during code review right
+after: a `FAILED` step could never be retried. `RunStyleStepUseCase` threw the
+stale persisted error on every subsequent call instead of trying again, and
+`PostgresPipelineLock`'s SQL only reclaims from `IDLE` or stale-`RUNNING`, never
+`FAILED` — so even a transient real Gemini rate limit would have permanently
+stuck that step. `pipeline-rules/SKILL.md` already anticipated this exact case
+("`startStep()` still matters for the FAILED→RUNNING retry path, where there's
+no concurrent-acquire race to protect against with SQL") but the use case never
+implemented it. Fixed by having `SURFACE_ERROR` retry directly through
+`Project.startStep()` instead of the SQL lock, with an optimistic-lock check
+covering the (much rarer) case of two concurrent retry clicks.
+
+Cost: this took the "done" point for #14 well past "unit tests pass" — a real,
+live Gemini call end-to-end, plus two real concurrent-request races (duplicate
+start, duplicate retry) fired against the running Docker container, is what
+actually caught these. Recording as a decision because it changes how I'll
+treat "tests pass" for #15–18: mocked tests verify the classification and
+state-machine logic, but the wire-format assumptions underneath them still
+need one live call each before I trust them.
