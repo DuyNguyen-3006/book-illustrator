@@ -20,8 +20,10 @@ export function ProtectedRoute({ children }: { children: ReactElement }) {
     );
   }
 
+  // Straight to the form, not to the marketing page: someone hitting a project
+  // URL signed out wants to sign in, not to read the pitch again.
   if (isError || !user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/signin" replace />;
   }
 
   return children;

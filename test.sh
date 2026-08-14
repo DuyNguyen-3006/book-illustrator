@@ -38,9 +38,13 @@ docker run --rm \
   -w /app \
   maven:3.9-eclipse-temurin-21 mvn -B test
 
+# The anonymous volume on /app/node_modules keeps the container's Linux install
+# inside the container: without it, npm ci overwrites the host's node_modules and
+# leaves the developer with binaries for the wrong platform.
 echo "==> Frontend tests"
 docker run --rm \
   -v "$HOST_DIR/frontend:/app" \
+  -v /app/node_modules \
   -w /app \
   node:22-alpine sh -c 'npm ci --no-audit --no-fund && npm run test'
 
