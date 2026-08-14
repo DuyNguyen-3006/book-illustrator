@@ -1,6 +1,10 @@
 package com.bookillustrator.infrastructure.gemini;
 
 import com.bookillustrator.application.port.output.GeminiGateway;
+import com.bookillustrator.domain.exception.GeminiGenerationException;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,12 +20,26 @@ import java.util.Map;
 @Component
 public class GeminiGatewayAdapter implements GeminiGateway {
 
+    private static final int MAX_CHARACTERS = 2;
+
+    private static final Map<String, Object> CHARACTERS_SCHEMA = Map.of(
+            "type", "array",
+            "items", Map.of(
+                    "type", "object",
+                    "properties", Map.of(
+                            "name", Map.of("type", "string"),
+                            "prompt", Map.of("type", "string")),
+                    "required", List.of("name", "prompt")));
+
     private final GeminiClient client;
     private final String textModel;
+    private final ObjectMapper objectMapper;
 
-    public GeminiGatewayAdapter(GeminiClient client, @Value("${gemini.text-model}") String textModel) {
+    public GeminiGatewayAdapter(
+            GeminiClient client, @Value("${gemini.text-model}") String textModel, ObjectMapper objectMapper) {
         this.client = client;
         this.textModel = textModel;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -57,5 +75,42 @@ public class GeminiGatewayAdapter implements GeminiGateway {
         String style = userSuppliedStyle ? request.userProvidedStyle() : styleInteraction.outputText();
 
         return new StyleGenerationResult(style, bookFileUri, styleInteraction.id());
+    }
+
+    @Override
+    public CharactersGenerationResult generateCharacters(CharactersGenerationRequest request) {
+        GeminiClient.InteractionResult interaction = client.createInteraction(
+                textModel,
+                List.of(Map.of("type", "text", "text",
+                        "Now identify the main adult characters in the story — at most "
+                                + MAX_CHARACTERS + " — each with a short image-generation prompt "
+                                + "for their portrait, consistent with the art style established above. "
+                                + "The story may include non-adult or non-human characters; only "
+                                + "include adult characters.")),
+                request.previousInteractionId(),
+                CHARACTERS_SCHEMA);
+
+        List<CharacterDraft> characters = parseCharacters(interaction.outputText());
+        if (characters.size() > MAX_CHARACTERS) {
+            throw new GeminiGenerationException(
+                    "INVALID_OUTPUT", "Gemini returned more than " + MAX_CHARACTERS + " characters.", true);
+        }
+
+        return new CharactersGenerationResult(characters, interaction.id());
+    }
+
+    private List<CharacterDraft> parseCharacters(String json) {
+        try {
+            List<CharacterJson> parsed = objectMapper.readValue(json, new TypeReference<List<CharacterJson>>() {
+            });
+            return parsed.stream().map(c -> new CharacterDraft(c.name(), c.prompt())).toList();
+        } catch (Exception e) {
+            throw new GeminiGenerationException(
+                    "INVALID_OUTPUT", "Gemini's character list could not be parsed.", true);
+        }
+    }
+
+    /** Jackson-mapped shape of one item in the structured-output array — kept out of the port. */
+    private record CharacterJson(@JsonProperty("name") String name, @JsonProperty("prompt") String prompt) {
     }
 }

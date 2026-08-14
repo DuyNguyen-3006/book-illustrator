@@ -86,7 +86,7 @@ class RunStyleStepUseCaseTest {
                 new GeminiGateway.StyleGenerationResult("Watercolor style", "files/book-uri", "interaction-1"));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        RunStyleStepUseCase.Result result = useCase.execute(1L, OWNER_ID, null);
+        PipelineStepResult result = useCase.execute(1L, OWNER_ID, null);
 
         assertThat(result.inProgress()).isFalse();
         assertThat(result.project().getStyle()).isEqualTo("Watercolor style");
@@ -101,7 +101,7 @@ class RunStyleStepUseCaseTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(pipelineLock.tryAcquire(1L, "STYLE")).thenReturn(false);
 
-        RunStyleStepUseCase.Result result = useCase.execute(1L, OWNER_ID, null);
+        PipelineStepResult result = useCase.execute(1L, OWNER_ID, null);
 
         assertThat(result.inProgress()).isTrue();
         verify(geminiGateway, never()).generateStyle(any());
@@ -113,7 +113,7 @@ class RunStyleStepUseCaseTest {
         project.startStep(); // step_state RUNNING, step_started_at = now
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
 
-        RunStyleStepUseCase.Result result = useCase.execute(1L, OWNER_ID, null);
+        PipelineStepResult result = useCase.execute(1L, OWNER_ID, null);
 
         assertThat(result.inProgress()).isTrue();
         verify(pipelineLock, never()).tryAcquire(anyLong(), anyString());
@@ -131,7 +131,7 @@ class RunStyleStepUseCaseTest {
                 new GeminiGateway.StyleGenerationResult("Retried style", "files/book-uri", "interaction-1"));
         when(projectRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        RunStyleStepUseCase.Result result = useCase.execute(1L, OWNER_ID, null);
+        PipelineStepResult result = useCase.execute(1L, OWNER_ID, null);
 
         assertThat(result.inProgress()).isFalse();
         assertThat(result.project().getStyle()).isEqualTo("Retried style");
@@ -148,7 +148,7 @@ class RunStyleStepUseCaseTest {
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project), Optional.of(reloadedAfterWinnerCommitted));
         when(projectRepository.save(project)).thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(Project.class, 1L));
 
-        RunStyleStepUseCase.Result result = useCase.execute(1L, OWNER_ID, null);
+        PipelineStepResult result = useCase.execute(1L, OWNER_ID, null);
 
         assertThat(result.inProgress()).isTrue();
         verify(geminiGateway, never()).generateStyle(any());

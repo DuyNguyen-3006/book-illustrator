@@ -138,6 +138,11 @@ class GetProjectUseCaseTest {
         public List<Character> findByProjectId(long projectId) {
             return byProjectId.getOrDefault(projectId, List.of());
         }
+
+        @Override
+        public List<Character> saveAll(List<Character> characters) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 
     private static class FakeChapterRepository implements ChapterRepository {

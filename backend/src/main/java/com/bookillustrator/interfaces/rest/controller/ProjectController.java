@@ -1,6 +1,7 @@
 package com.bookillustrator.interfaces.rest.controller;
 
-import com.bookillustrator.application.usecase.pipeline.RunStyleStepUseCase;
+import com.bookillustrator.application.usecase.pipeline.PipelineStepResult;
+import com.bookillustrator.application.usecase.pipeline.RunPipelineStepUseCase;
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectUseCase;
 import com.bookillustrator.application.usecase.project.GetProjectsUseCase;
@@ -36,14 +37,14 @@ public class ProjectController {
     private final CreateProjectUseCase createProjectUseCase;
     private final GetProjectsUseCase getProjectsUseCase;
     private final GetProjectUseCase getProjectUseCase;
-    private final RunStyleStepUseCase runStyleStepUseCase;
+    private final RunPipelineStepUseCase runPipelineStepUseCase;
 
     public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase,
-                              GetProjectUseCase getProjectUseCase, RunStyleStepUseCase runStyleStepUseCase) {
+                              GetProjectUseCase getProjectUseCase, RunPipelineStepUseCase runPipelineStepUseCase) {
         this.createProjectUseCase = createProjectUseCase;
         this.getProjectsUseCase = getProjectsUseCase;
         this.getProjectUseCase = getProjectUseCase;
-        this.runStyleStepUseCase = runStyleStepUseCase;
+        this.runPipelineStepUseCase = runPipelineStepUseCase;
     }
 
     @PostMapping
@@ -111,7 +112,7 @@ public class ProjectController {
         }
 
         String style = request == null ? null : request.style();
-        RunStyleStepUseCase.Result result = runStyleStepUseCase.execute(id, userId, style);
+        PipelineStepResult result = runPipelineStepUseCase.execute(id, userId, style);
 
         RunStepResponse body = RunStepResponse.from(result.project());
         // Spec §4.3: the UI must show which step is running, not a bare spinner — the

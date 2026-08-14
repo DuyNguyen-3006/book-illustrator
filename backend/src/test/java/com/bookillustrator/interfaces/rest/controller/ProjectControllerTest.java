@@ -51,6 +51,10 @@ class ProjectControllerTest {
     void cleanUp() {
         for (String email : List.of(TEST_EMAIL, OTHER_EMAIL)) {
             jdbcTemplate.update(
+                    "DELETE FROM characters WHERE project_id IN "
+                            + "(SELECT id FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?))",
+                    email);
+            jdbcTemplate.update(
                     "DELETE FROM projects WHERE user_id IN (SELECT id FROM users WHERE email = ?)", email);
             jdbcTemplate.update("DELETE FROM users WHERE email = ?", email);
         }
@@ -309,6 +313,30 @@ class ProjectControllerTest {
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error.code").value("UPSTREAM_ERROR"));
+    }
+
+    @Test
+    void runStepGeneratesCharactersAndAdvancesToPortraits() throws Exception {
+        MockHttpSession session = loggedInSession();
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Characters Step Test").param("bookText", "text"));
+        long projectId = jdbcTemplate.queryForObject(
+                "SELECT id FROM projects WHERE title = 'Characters Step Test'", Long.class);
+        jdbcTemplate.update("UPDATE projects SET current_step = 'CHARACTERS' WHERE id = ?", projectId);
+        when(geminiGateway.generateCharacters(any())).thenReturn(new GeminiGateway.CharactersGenerationResult(
+                List.of(new GeminiGateway.CharacterDraft("Alice", "a curious young woman")),
+                "interaction-id"));
+
+        mockMvc.perform(post("/projects/" + projectId + "/run-step").session(session)
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data.currentStep").value("PORTRAITS"))
+                .andExpect(jsonPath("$.data.stepState").value("IDLE"));
+
+        mockMvc.perform(get("/projects/" + projectId).session(session))
+                .andExpect(jsonPath("$.data.characters.length()").value(1))
+                .andExpect(jsonPath("$.data.characters[0].name").value("Alice"));
     }
 
     @Test

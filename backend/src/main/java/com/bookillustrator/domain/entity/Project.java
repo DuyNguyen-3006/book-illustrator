@@ -183,6 +183,11 @@ public class Project {
         this.lastTextInteractionId = interactionId;
     }
 
+    /** Same as {@link #recordTextInteraction} for a step that doesn't touch the book file. */
+    public void recordTextInteraction(String interactionId) {
+        this.lastTextInteractionId = interactionId;
+    }
+
     public void recordStyle(String style) {
         this.style = style;
     }
