@@ -16,14 +16,18 @@ const buttonStyles = {
     secondary:
       "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:translate-y-[1px] transition-colors",
     ghost: "hover:bg-muted active:translate-y-[1px] transition-colors",
+    accent:
+      "bg-accent text-accent-foreground hover:bg-accent/90 active:translate-y-[1px] transition-colors",
     link: "text-primary underline-offset-4 hover:underline",
     unstyled: "",
   },
+  // Pill-shaped, per the reference design: buttons are the one fully-rounded
+  // shape in the system, cards and inputs stay on the radius scale.
   size: {
-    default: "h-10 px-4 py-2 rounded-lg",
-    sm: "h-9 px-3 rounded-md",
-    lg: "h-11 px-8 rounded-xl",
-    icon: "h-10 w-10 rounded-lg",
+    default: "h-11 px-6 py-2 rounded-full",
+    sm: "h-9 px-4 rounded-full",
+    lg: "h-12 px-8 text-base rounded-full",
+    icon: "h-10 w-10 rounded-full",
     unstyled: "",
   }
 };
