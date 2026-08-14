@@ -30,8 +30,8 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
       password/OAuth)
 
 ## Milestone 3 — 2. Projects
-- [ ] #8 `[BE]` Create project: title + book text (paste or `.txt` upload), validation
-- [ ] #9 `[BE]` List projects for a user: title, created date, status, per-step progress
+- [x] #8 `[BE]` Create project: title + book text (paste or `.txt` upload), validation
+- [~] #9 `[BE]` List projects for a user: title, created date, status, per-step progress
 - [ ] #10 `[BE]` Project detail read model: current step, all step outputs so far, book
       text
 

@@ -11,6 +11,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -133,6 +134,43 @@ class ProjectControllerTest {
         mockMvc.perform(post("/projects")
                         .param("title", "No Session")
                         .param("bookText", "text"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void listReturnsEmptyArrayNotErrorWhenUserHasNoProjects() throws Exception {
+        MockHttpSession session = loggedInSession();
+
+        mockMvc.perform(get("/projects").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("success"))
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    void listReturnsTheUsersProjectsNewestFirst() throws Exception {
+        MockHttpSession session = loggedInSession();
+
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "First").param("bookText", "text"));
+        mockMvc.perform(post("/projects").session(session)
+                .param("title", "Second").param("bookText", "text"));
+
+        mockMvc.perform(get("/projects").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andExpect(jsonPath("$.data[0].title").value("Second"))
+                .andExpect(jsonPath("$.data[0].status").value("DRAFT"))
+                .andExpect(jsonPath("$.data[0].currentStep").value("STYLE"))
+                .andExpect(jsonPath("$.data[0].stepState").value("IDLE"))
+                .andExpect(jsonPath("$.data[1].title").value("First"));
+    }
+
+    @Test
+    void listUnauthenticatedReturns401() throws Exception {
+        mockMvc.perform(get("/projects"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("UNAUTHENTICATED"));
     }

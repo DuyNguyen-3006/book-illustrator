@@ -1,11 +1,14 @@
 package com.bookillustrator.interfaces.rest.controller;
 
 import com.bookillustrator.application.usecase.project.CreateProjectUseCase;
+import com.bookillustrator.application.usecase.project.GetProjectsUseCase;
 import com.bookillustrator.interfaces.rest.response.ApiResponse;
 import com.bookillustrator.interfaces.rest.response.ProjectResponse;
+import com.bookillustrator.interfaces.rest.response.ProjectSummaryResponse;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -15,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @RestController
 @RequestMapping("/projects")
@@ -23,9 +27,11 @@ public class ProjectController {
     private static final String SESSION_USER_ID = "userId";
 
     private final CreateProjectUseCase createProjectUseCase;
+    private final GetProjectsUseCase getProjectsUseCase;
 
-    public ProjectController(CreateProjectUseCase createProjectUseCase) {
+    public ProjectController(CreateProjectUseCase createProjectUseCase, GetProjectsUseCase getProjectsUseCase) {
         this.createProjectUseCase = createProjectUseCase;
+        this.getProjectsUseCase = getProjectsUseCase;
     }
 
     @PostMapping
@@ -35,7 +41,7 @@ public class ProjectController {
             @RequestParam(value = "file", required = false) MultipartFile file,
             HttpSession session) {
 
-        Long userId = (Long) session.getAttribute(SESSION_USER_ID);
+        Long userId = authenticatedUserId(session);
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
                     new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
@@ -52,6 +58,24 @@ public class ProjectController {
         CreateProjectUseCase.Result result = createProjectUseCase.execute(
                 new CreateProjectUseCase.Command(userId, title, resolvedText));
         return ResponseEntity.ok(ApiResponse.success(ProjectResponse.from(result)));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<ProjectSummaryResponse>>> list(HttpSession session) {
+        Long userId = authenticatedUserId(session);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error(
+                    new ApiResponse.ApiError("UNAUTHENTICATED", "Log in first.", null, false)));
+        }
+
+        List<ProjectSummaryResponse> projects = getProjectsUseCase.execute(userId).stream()
+                .map(ProjectSummaryResponse::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(projects));
+    }
+
+    private static Long authenticatedUserId(HttpSession session) {
+        return (Long) session.getAttribute(SESSION_USER_ID);
     }
 
     /** Exactly one of pasted text or a .txt upload — spec §4.4. */

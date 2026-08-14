@@ -5,6 +5,8 @@ import com.bookillustrator.domain.entity.Project;
 import com.bookillustrator.infrastructure.persistence.repository.ProjectJpaRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Component
 public class ProjectRepositoryAdapter implements ProjectRepository {
 
@@ -17,5 +19,10 @@ public class ProjectRepositoryAdapter implements ProjectRepository {
     @Override
     public Project create(long userId, String title, String bookTextPath) {
         return jpaRepository.save(new Project(userId, title, bookTextPath));
+    }
+
+    @Override
+    public List<Project> findByUserId(long userId) {
+        return jpaRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 }

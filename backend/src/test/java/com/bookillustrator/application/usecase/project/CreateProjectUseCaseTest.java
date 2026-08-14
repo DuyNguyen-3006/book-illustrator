@@ -91,12 +91,22 @@ class CreateProjectUseCaseTest {
             created.add(project);
             return project;
         }
+
+        @Override
+        public List<Project> findByUserId(long userId) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 
     private static class FailingProjectRepository implements ProjectRepository {
         @Override
         public Project create(long userId, String title, String bookTextPath) {
             throw new RuntimeException("db down");
+        }
+
+        @Override
+        public List<Project> findByUserId(long userId) {
+            throw new UnsupportedOperationException("not needed for this test");
         }
     }
 }

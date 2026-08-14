@@ -120,4 +120,8 @@ public class Project {
     public StepState getStepState() {
         return stepState;
     }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
 }
