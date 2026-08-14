@@ -382,3 +382,45 @@ without inventing a new folder per screen.
 Deliberately not installed: `zod` (the backend is ours and one envelope guard
 covers it), `msw` (the tests mock the service module directly), and any form
 library (three small forms).
+
+---
+
+## 14. Pinned the design language before building four more screens, and only took the half of the taste skill that applies
+
+I installed a third design skill, `design-taste-frontend`, after the identity
+screen existed but before the remaining screens were built, on the theory that
+the design language is cheaper to decide once than to reconcile five times. The
+AI checked it first rather than installing on my say-so: prompt-only markdown,
+MIT, no npm package, no scripts.
+
+The useful part of that check was the skill's own scope section, which says it is
+for landing pages and portfolios and explicitly **not** for multi-step product
+UI — which is precisely what a five-step pipeline is. So we took its language
+layer (token strategy, type scale, colour calibration, interactive states, dark
+mode, its list of AI tells, and its pre-flight checklist) and ignored its
+landing-page structure rules. No hero patterns, no eyebrow-per-section rhythm, no
+marquees on a screen whose job is to show which step is running.
+
+Two of its defaults were overridden on the spot, both for CLAUDE.md §2.1 reasons:
+its GSAP scroll skeletons would have meant a new dependency, and its icon
+preference (Phosphor over `lucide-react`) would have meant swapping a library
+that already ships with Lightswind for no user-visible gain.
+
+What actually changed: one token layer in `index.css` for both light and dark,
+driving every colour, radius and font decision from a single place; a reduced-
+motion block, because a UI that changes state every few seconds during a 30-second
+Gemini call is exactly the kind that should calm down when the OS asks; the
+identity screen rebuilt as an asymmetric split that puts the five pipeline steps
+on screen as real content instead of decoration; and Lightswind's `Button` and
+`Alert` restyled onto our tokens, since their shipped versions hardcode
+`bg-white dark:bg-black` and a fixed red and would have quietly ignored the
+palette.
+
+Cost, and the part I did not expect: applying the language deleted more than it
+added. Lightswind's `Input` is a motion component with a permanently animating
+border beam, which fails both the skill's "motion must be motivated" rule and
+`frontend-rules`' layout-stability requirement, so the form uses a plain styled
+`input` — which in turn made `input.tsx`, `border-beam.tsx` and the entire
+`framer-motion` dependency unused. Removing them took the production bundle from
+427 KB to 298 KB. The component library I insisted on in decision 13 is, so far,
+paying for itself mostly in components I have deleted.

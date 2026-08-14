@@ -1,14 +1,20 @@
 import { useState, type FormEvent } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { messageOf } from "@/shared/lib/errors";
+import { cn } from "@/lib/utils";
 import { useLogin } from "../hooks/useLogin";
 
 // Same shape the backend's IdentifyUserUseCase accepts, so the two agree on what
 // "valid" means instead of the browser waving through what the API will reject.
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const FIELD_CLASSES =
+  "h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground " +
+  "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 " +
+  "focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background " +
+  "aria-[invalid=true]:border-destructive";
 
 interface FieldErrors {
   name?: string;
@@ -40,13 +46,16 @@ export function IdentityForm({ onSignedIn }: { onSignedIn: () => void }) {
   }
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
+    <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="name">Name</Label>
-        <Input
+        <Label htmlFor="name" className="text-sm font-medium">
+          Name
+        </Label>
+        <input
           id="name"
           name="name"
           autoComplete="name"
+          className={cn(FIELD_CLASSES)}
           value={name}
           onChange={(event) => setName(event.target.value)}
           aria-invalid={Boolean(fieldErrors.name)}
@@ -60,12 +69,15 @@ export function IdentityForm({ onSignedIn }: { onSignedIn: () => void }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
+        <Label htmlFor="email" className="text-sm font-medium">
+          Email
+        </Label>
+        <input
           id="email"
           name="email"
           type="email"
           autoComplete="email"
+          className={cn(FIELD_CLASSES)}
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={Boolean(fieldErrors.email)}
@@ -79,13 +91,13 @@ export function IdentityForm({ onSignedIn }: { onSignedIn: () => void }) {
       </div>
 
       {error && (
-        <Alert role="alert" variant="destructive">
+        <Alert role="alert" variant="destructive" size="sm">
           <AlertDescription>{messageOf(error)}</AlertDescription>
         </Alert>
       )}
 
-      <Button type="submit" disabled={isPending}>
-        {isPending ? "Signing in…" : "Continue"}
+      <Button type="submit" size="lg" disabled={isPending}>
+        {isPending ? "Signing in" : "Continue"}
       </Button>
     </form>
   );

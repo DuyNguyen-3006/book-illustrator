@@ -3,17 +3,16 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { AlertCircle, CheckCircle, Info, X, AlertTriangle } from "lucide-react";
 
+// Restyled onto this project's tokens: the shipped variants hardcode pure white
+// and pure black surfaces and a fixed red, none of which follow the palette.
 const alertVariants = {
   variant: {
-    default: "bg-white dark:bg-black text-foreground",
+    default: "bg-card text-card-foreground border-border",
     destructive:
-      " border-gray-400 dark:border-gray-700/50 text-red-500  [&>svg]:text-destructive",
-    success:
-      "border-green-500/50 text-green-700 dark:text-green-500 [&>svg]:text-green-500",
-    warning:
-      "border-yellow-500/50 text-yellow-700 dark:text-yellow-500 [&>svg]:text-yellow-500",
-    info:
-      "border-[color-mix(in_srgb,var(--primarylw)_50%,transparent)] text-blue-700 dark:text-primarylw [&>svg]:text-primarylw",
+      "border-destructive/40 bg-destructive/5 text-destructive [&>svg]:text-destructive",
+    success: "border-emerald-600/40 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400",
+    warning: "border-amber-600/40 bg-amber-600/5 text-amber-700 dark:text-amber-400",
+    info: "border-border bg-muted text-foreground",
   },
   size: {
     default: "p-4",
