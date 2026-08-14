@@ -11,4 +11,5 @@ if [ ! -f frontend/.env ]; then
   echo "Created frontend/.env from frontend/.env.example."
 fi
 
+echo "Starting Postgres, the API and the UI. The app will be at http://localhost:5173"
 docker compose --env-file backend/.env up --build
