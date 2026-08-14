@@ -122,26 +122,35 @@ public class RestGeminiClient implements GeminiClient {
     }
 
     /**
-     * Same endpoint, {@code response_format: {type:"image", mime_type}} instead of a
-     * text/JSON schema. Response shape is NOT YET LIVE-VERIFIED (issue #16) — the image
-     * model returns {@code 429 limit: 0} on this key's free tier. Best-supported guess,
-     * not a documentation-only guess: the text case's own docs claimed a top-level
-     * {@code output_text} field and that was wrong (#14) — the real reply is nested in
-     * {@code steps[].content[]} on the {@code model_output} step, so this assumes the
-     * image reply is nested the same way, as a {@code content[]} entry with
-     * {@code type:"image"} and base64 {@code data}/{@code mime_type} fields. Verify
-     * against a real call before trusting this beyond the mocked test suite.
+     * Same endpoint as the text call, but the image model differs in two ways that only
+     * a real call revealed (issue #16, both confirmed against the live API):
+     *
+     * <ul>
+     *   <li>{@code response_format.mime_type} rejects {@code image/png}:
+     *       <em>"Supported values: 'image/jpeg'"</em>.</li>
+     *   <li>The content array the text path sends is read as a turn_list and rejected:
+     *       <em>"When using the steps-based API version, use step_list input format
+     *       instead of turn_list"</em>. The parts are therefore wrapped in one input
+     *       step.</li>
+     * </ul>
+     *
+     * With both corrected the request passes validation and reaches the account's image
+     * quota (429), so the <em>response</em> shape below is still the same
+     * best-supported assumption as before: the reply nested in
+     * {@code steps[].content[]} on the {@code model_output} step, as a {@code type:"image"}
+     * entry with base64 {@code data}. Confirm it against a successful call before
+     * trusting it beyond the mocked tests.
      */
     @Override
     public ImageInteractionResult createImageInteraction(
             String model, List<Map<String, Object>> input, String previousInteractionId) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
-        body.put("input", input);
+        body.put("input", List.of(Map.of("type", "user_input", "content", input)));
         if (previousInteractionId != null) {
             body.put("previous_interaction_id", previousInteractionId);
         }
-        body.put("response_format", Map.of("type", "image", "mime_type", "image/png"));
+        body.put("response_format", Map.of("type", "image", "mime_type", "image/jpeg"));
 
         Map<String, Object> response = restClient.post()
                 .uri(BASE_URL + "/v1beta/interactions")
