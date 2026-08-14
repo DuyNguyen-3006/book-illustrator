@@ -36,6 +36,16 @@ services:
     ports:
       - "8080:8080"
 
+  frontend:
+    build: ./frontend
+    depends_on:
+      - app
+    # The only port a user needs: nginx serves the built app and proxies /api to
+    # the API, so the browser talks to exactly one origin and the session cookie
+    # stays first-party (no CORS configuration anywhere in the backend).
+    ports:
+      - "5173:80"
+
 volumes:
   pgdata:
   appdata:
