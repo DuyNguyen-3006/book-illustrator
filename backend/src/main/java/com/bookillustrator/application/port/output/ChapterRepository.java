@@ -8,5 +8,10 @@ public interface ChapterRepository {
 
     List<Chapter> findByProjectId(long projectId);
 
-    List<Chapter> saveAll(List<Chapter> chapters);
+    /**
+     * The project's chapters become exactly these. Same reason as
+     * {@link CharacterRepository#replaceForProject}: a rerun must not push the
+     * project past its 1-chapter cap.
+     */
+    List<Chapter> replaceForProject(long projectId, List<Chapter> chapters);
 }

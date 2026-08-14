@@ -22,7 +22,11 @@ public class ChapterRepositoryAdapter implements ChapterRepository {
     }
 
     @Override
-    public List<Chapter> saveAll(List<Chapter> chapters) {
+    public List<Chapter> replaceForProject(long projectId, List<Chapter> chapters) {
+        // Runs inside the caller's transaction, so the project is never briefly
+        // left with no chapter if the insert fails.
+        jpaRepository.deleteByProjectId(projectId);
+        jpaRepository.flush();
         return jpaRepository.saveAll(chapters);
     }
 }
