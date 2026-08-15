@@ -1,129 +1,162 @@
+<div align="center">
+
 # Book Illustrator
 
-Turns a book's text into character portraits and a chapter illustration through the Gemini
-API, in five steps the user runs one at a time: **Style → Characters → Portraits → Chapters
-→ Illustrations**.
+**Turn a book's text into character portraits and a chapter illustration, one deliberate step at a time.**
 
-Nothing runs on its own, every result is saved as it lands, and a project can be closed and
-reopened at any point without losing work or paying for the same step twice.
+Java · Spring Boot · PostgreSQL · React · TypeScript · Gemini API
+
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Architecture](#architecture) · [Testing](TESTING.md) · [Decisions](DECISIONS.md)
+
+</div>
 
 ---
 
-## Prerequisites
+Paste a book. Run five steps at your own pace and watch each result land: an art style, the
+main characters, their portraits, a chapter prompt, and the finished scene.
 
-- **Docker** with Compose. That is the whole list: the backend builds and tests inside
-  containers, so no local JDK, Maven or Node is required.
-- **A Gemini API key** of your own: <https://ai.google.dev/gemini-api/docs>
+Nothing runs on its own. Every result is saved the moment it arrives. Close the tab
+mid-generation and reopen it a day later, and the project picks up exactly where it stopped
+without paying for the same step twice.
 
-> **Note on image generation.** The Portraits and Illustrations steps call an image model,
-> and the free tier's image quota is small and easy to exhaust: once it is gone, every Nano
-> Banana model answers `429` until it resets, and the Imagen models answer `404 no longer
-> available to new users`. All five steps have been run end to end against a real key. If
-> step 3 or 5 fails with "The AI service is busy", that is the quota, not the app: retry
-> later or enable billing.
+```
+Style  ──▶  Characters  ──▶  Portraits  ──▶  Chapter prompts  ──▶  Illustrations
+ text          text            image             text                  image
+```
 
-## Start it
+## What it does well
+
+| | |
+|---|---|
+| **You hold the trigger** | Every step waits for an explicit click, so a project costs exactly what you asked for. No background workers, no surprise spend. |
+| **Never runs twice** | Acquiring a step is a conditional `UPDATE` in Postgres. A double click, a refresh, or a second tab loses the race and is shown the run already in flight. |
+| **Survives everything** | Refresh, sign out, restart the server mid-call: the project reports its true state on reopen, down to how long the current step has been running. |
+| **Fails usefully** | A failed step keeps everything generated before it, records why in plain language, and retries alone. |
+| **Never gets stuck** | A run that outlives the 120-second lock is reclaimed by the next attempt from the UI. No database surgery, no support ticket. |
+| **Costs are bounded** | Two characters and one chapter per project, enforced server-side, including across retries. |
+
+## Quick start
+
+**You need:** Docker with Compose, and your own [Gemini API key](https://ai.google.dev/gemini-api/docs).
+No local JDK, Maven or Node: everything builds and tests inside containers.
 
 ```bash
+git clone https://github.com/DuyNguyen-3006/book-illustrator.git
+cd book-illustrator
 ./start.sh
 ```
 
-The script creates `backend/.env` and `frontend/.env` from their examples on first run, then
-brings up Postgres, the API and the UI.
+First run creates `backend/.env` and `frontend/.env` from their examples, then brings up
+Postgres, the API and the UI.
 
-**Put your key in `backend/.env` (`GEMINI_API_KEY=...`) before running a pipeline step.**
+**Add your key to `backend/.env` before running a pipeline step:**
 
-Then open <http://localhost:5173>. Sign in with any name and email: there is no password,
-an unknown email creates an account, and a known one loads its projects.
-
-## Test it
-
-```bash
-./test.sh
+```env
+GEMINI_API_KEY=your-key-here
 ```
 
-Backend suite (real Postgres, stubbed Gemini) followed by the frontend suite. Strategy, the
-manual QA scenarios and a real run's output are in [`TESTING.md`](TESTING.md).
+Open **<http://localhost:5173>** and sign in with any name and email. There is no password:
+a new email starts an account, a known one loads its projects.
 
-## Environment variables
+```bash
+./test.sh    # backend suite against a real Postgres, then the frontend suite
+```
 
-| Variable | Where | Purpose |
-|---|---|---|
-| `GEMINI_API_KEY` | `backend/.env` | Your own key. Never committed; `.env` is git-ignored. |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `backend/.env` | Database credentials, also read by the Postgres container. |
-| `PORT` | `backend/.env` | API port, default `8080`. |
-| `STORAGE_ROOT` | `backend/.env` | Where book text and generated images are written. Compose sets it to `/data` so they survive a rebuild. |
-| `VITE_API_BASE_URL` | `frontend/.env` | Only used by the Vite dev server's proxy target; the container talks to the API through nginx. |
+> **On image quota.** Steps 3 and 5 call an image model, and the free tier's image
+> allowance is small and easy to exhaust. When it runs out, every Nano Banana model answers
+> `429` until it resets, and the Imagen models answer `404 no longer available to new
+> users`. All five steps have been run end to end against a real key; if step 3 or 5 says
+> "The AI service is busy", that is the quota talking, not the app.
+
+## How it works
+
+| # | Step | Produces | Model |
+|---|---|---|---|
+| 1 | **Style** | An art style, either yours or one the model derives from the book | text |
+| 2 | **Characters** | Up to 2 adult characters, each with an image prompt | text |
+| 3 | **Portraits** | One portrait per character, in the established style | image |
+| 4 | **Chapter prompts** | One chapter scene, referencing the characters by name | text |
+| 5 | **Illustrations** | The scene, drawn with the portraits attached so faces stay consistent | image |
+
+The book is uploaded **once**. Every later text step chains off the previous interaction id
+rather than resending the book, and the image steps carry the portraits they need directly.
+That is the notebook's mechanism, verified over REST by this app.
 
 ## Architecture
 
-```
-browser ──> nginx (frontend container, port 5173)
-              ├── serves the built React app
-              └── proxies /api/ ──> Spring Boot (app container, port 8080) ──> Postgres
-                                          └──> Gemini REST API
-                                          └──> local filesystem (book text, images)
+```mermaid
+flowchart LR
+    B[Browser] -->|one origin| N[nginx<br/>serves the SPA<br/>proxies /api]
+    N --> A[Spring Boot API]
+    A --> P[(PostgreSQL<br/>projects, steps,<br/>characters, chapters)]
+    A --> F[Local filesystem<br/>book text, images]
+    A --> G[Gemini REST API]
 ```
 
 The browser only ever talks to one origin, so the session cookie is first-party and the
-backend carries no CORS configuration. In development the Vite proxy plays nginx's part.
+backend carries no CORS configuration at all. In development the Vite proxy plays nginx's
+part.
 
-**Backend** — Java + Spring Boot, Clean Architecture:
+**Backend** — Clean Architecture, enforced by a test rather than by convention:
 
 ```
-interfaces/rest → application (usecase, port/output) → domain (entity, enums, exception)
-infrastructure  → implements the output ports (Postgres, Gemini REST, local files)
+interfaces/rest  →  application (use cases, output ports)  →  domain (entities, enums)
+infrastructure   →  implements the ports: Postgres, Gemini REST, local files
 ```
 
-`domain` imports no Spring; controllers reach infrastructure only through use cases.
-`ArchitectureTest` (ArchUnit) fails the build if that stops being true. Full rules:
+`domain` imports no Spring. Controllers reach infrastructure only through use cases.
+`ArchitectureTest` (ArchUnit) fails the build when that stops being true. Full rules in
 [`docs/architecture.md`](docs/architecture.md).
 
-**Frontend** — React + Vite + TypeScript, feature-sliced:
+**Frontend** — feature-sliced React:
 
 ```
 src/features/<domain>/{components,pages,hooks,services,types}
 src/shared/{components,lib,types}   src/router   src/config   src/components/ui
 ```
 
-TanStack Query owns server state, including polling a running step and stopping when it
-finishes. One module knows the response envelope; screens never branch on the shape of a
+TanStack Query owns server state, including polling a running step and stopping the moment
+it finishes. One module knows the response envelope; no screen branches on the shape of a
 response.
 
-**Storage** — Postgres holds users, projects, pipeline state, characters and chapters. Book
-text and generated images are files on a mounted volume; the database stores their paths.
+## Tech stack
 
-### How the pipeline behaves
-
-- **User-driven and ordered.** A step runs only when asked, and the backend picks which step
-  that is, so a stale tab cannot skip ahead.
-- **No duplicate calls.** Acquiring a step is a conditional `UPDATE`, so a double click, a
-  refresh or a second tab loses the race and is shown the run already in flight instead of
-  starting a second one.
-- **Resumable.** Progress lives in the database. Reopening a project shows its true state,
-  including a step still running and how long it has been running.
-- **Retryable.** A failed step keeps everything generated before it, records why it failed,
-  and can be retried on its own.
-- **Never stuck.** A run that holds a step past the 120s lock TTL can be reclaimed by the
-  next attempt from the UI. No database surgery.
-- **Never auto-retried.** A failed Gemini call is surfaced and left to the user, per the
-  assessment's cost rule.
+| Layer | Choice | Why |
+|---|---|---|
+| Backend | Java 21, Spring Boot 3.3 | Fast to move in, boring in the good way |
+| Database | PostgreSQL 16, Flyway | Real transactions and a real conditional `UPDATE` for the step lock |
+| Frontend | React 19, Vite, TypeScript | Matches the reference scope |
+| Server state | TanStack Query | Polling, dedupe and cache invalidation without hand-rolled timers |
+| Styling | Tailwind v3, Lightswind components | Design tokens in one place, components owned in-repo |
+| Tests | JUnit + Mockito + ArchUnit, Vitest + Testing Library | 137 backend, 46 frontend |
+| Deployment | Docker Compose, local only | The assessment forbids a public deployment |
 
 ## Repository map
 
 | Path | What |
 |---|---|
-| `backend/` | Spring Boot service, Flyway migrations, tests |
-| `frontend/` | React app, nginx config, tests |
-| `docs/architecture.md` | Backend architecture, written before the code followed it |
-| `docs/tasks.md` | The task list, mirroring GitHub Issues |
-| `DECISIONS.md` | Why things are the way they are, including where I overrode the AI |
-| `TESTING.md` | Test strategy, manual QA, real run output |
-| `CLAUDE.md`, `.claude/`, `.agents/` | The AI working contract and its skills |
+| [`backend/`](backend) | Spring Boot service, Flyway migrations, tests |
+| [`frontend/`](frontend) | React app, nginx config, tests |
+| [`docs/architecture.md`](docs/architecture.md) | Backend architecture, written before the code followed it |
+| [`docs/tasks.md`](docs/tasks.md) | Task list, mirroring GitHub Issues |
+| [`DECISIONS.md`](DECISIONS.md) | Why things are the way they are, including where the AI was overruled |
+| [`TESTING.md`](TESTING.md) | What is tested, what deliberately is not, and a real run |
+| [`CLAUDE.md`](CLAUDE.md), [`.claude/`](.claude) | The AI working contract and its skills |
+
+## Environment variables
+
+| Variable | File | Purpose |
+|---|---|---|
+| `GEMINI_API_KEY` | `backend/.env` | Your own key. Git-ignored; `.env.example` is what ships. |
+| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `backend/.env` | Database credentials, also read by the Postgres container |
+| `PORT` | `backend/.env` | API port, default `8080` |
+| `STORAGE_ROOT` | `backend/.env` | Where book text and images are written; Compose points it at a volume so they survive a rebuild |
+| `VITE_API_BASE_URL` | `frontend/.env` | Dev-server proxy target only; in containers nginx handles it |
 
 ## Known limitations
 
-- Image steps depend on the free tier's image quota (above).
-- A backend restart clears sessions, since they are in-memory; pipeline state is unaffected
-  and the UI sends the user back to sign in.
-- Local only, by the assessment's instruction. Do not deploy this publicly with a real key.
+- **Image quota.** Steps 3 and 5 depend on the free tier's image allowance (see above).
+- **Sessions are in-memory.** Restarting the backend signs users out. Pipeline state is
+  untouched and the UI sends them back to sign in.
+- **Local only**, by the assessment's instruction. Do not deploy this publicly with a real
+  key.
