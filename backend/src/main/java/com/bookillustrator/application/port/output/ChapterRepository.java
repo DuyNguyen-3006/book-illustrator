@@ -14,4 +14,7 @@ public interface ChapterRepository {
      * project past its 1-chapter cap.
      */
     List<Chapter> replaceForProject(long projectId, List<Chapter> chapters);
+
+    /** Updates rows that already exist, e.g. writing an illustration path onto a chapter. */
+    List<Chapter> saveAll(List<Chapter> chapters);
 }

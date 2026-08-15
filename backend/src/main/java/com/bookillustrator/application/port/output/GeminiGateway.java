@@ -18,6 +18,8 @@ public interface GeminiGateway {
 
     ChaptersGenerationResult generateChapters(ChaptersGenerationRequest request);
 
+    IllustrationsGenerationResult generateIllustrations(IllustrationsGenerationRequest request);
+
     /**
      * @param bookText            full book text — only actually sent if this is the
      *                            project's first Gemini call ({@code existingBookFileUri} is null)
@@ -77,5 +79,26 @@ public interface GeminiGateway {
     }
 
     record ChaptersGenerationResult(List<ChapterDraft> chapters, String interactionId) {
+    }
+
+    /**
+     * The granular approach from the notebook's bonus section (pipeline-rules SKILL.md
+     * §5): each chapter is a fresh, standalone image call carrying the portraits that
+     * chapter actually references, rather than hoping a long chain still remembers them.
+     */
+    record IllustrationsGenerationRequest(String style, List<ChapterForIllustration> chapters) {
+    }
+
+    record ChapterForIllustration(
+            long chapterId, String name, String prompt, List<CharacterPortrait> characterPortraits) {
+    }
+
+    record CharacterPortrait(String name, byte[] imageBytes, String mimeType) {
+    }
+
+    record IllustrationResult(long chapterId, byte[] imageBytes, String mimeType) {
+    }
+
+    record IllustrationsGenerationResult(List<IllustrationResult> illustrations) {
     }
 }

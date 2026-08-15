@@ -187,5 +187,10 @@ class GetProjectUseCaseTest {
         public List<Chapter> replaceForProject(long projectId, List<Chapter> chapters) {
             throw new UnsupportedOperationException("not needed for this test");
         }
+
+        @Override
+        public List<Chapter> saveAll(List<Chapter> chapters) {
+            throw new UnsupportedOperationException("not needed for this test");
+        }
     }
 }

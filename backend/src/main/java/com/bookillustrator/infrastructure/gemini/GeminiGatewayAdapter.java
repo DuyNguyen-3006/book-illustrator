@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -160,6 +161,42 @@ public class GeminiGatewayAdapter implements GeminiGateway {
         }
 
         return new ChaptersGenerationResult(chapters, interaction.id());
+    }
+
+    /**
+     * The notebook's granular variant (pipeline-rules SKILL.md §5): one standalone image
+     * call per chapter, carrying that chapter's portraits as image parts, rather than
+     * extending the portrait chain and trusting it to remember faces. No
+     * {@code previous_interaction_id} on purpose.
+     */
+    @Override
+    public IllustrationsGenerationResult generateIllustrations(IllustrationsGenerationRequest request) {
+        List<IllustrationResult> illustrations = new ArrayList<>();
+
+        for (ChapterForIllustration chapter : request.chapters()) {
+            List<Map<String, Object>> input = new ArrayList<>();
+            input.add(Map.of("type", "text", "text",
+                    "Art style: \"" + request.style() + "\". Illustrate this scene: " + chapter.name()
+                            + " — " + chapter.prompt()
+                            + (chapter.characterPortraits().isEmpty()
+                                    ? ""
+                                    : " Use the attached portraits so the characters look the same as before.")
+                            + " No text, no watermarks, no signatures."));
+
+            for (CharacterPortrait portrait : chapter.characterPortraits()) {
+                input.add(Map.of(
+                        "type", "image",
+                        "mime_type", portrait.mimeType(),
+                        "data", Base64.getEncoder().encodeToString(portrait.imageBytes())));
+            }
+
+            GeminiClient.ImageInteractionResult interaction =
+                    client.createImageInteraction(imageModel, input, null);
+            illustrations.add(new IllustrationResult(
+                    chapter.chapterId(), interaction.imageBytes(), interaction.mimeType()));
+        }
+
+        return new IllustrationsGenerationResult(illustrations);
     }
 
     private List<CharacterDraft> parseCharacters(String json) {

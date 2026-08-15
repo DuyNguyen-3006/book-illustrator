@@ -82,4 +82,8 @@ public class Chapter {
     public List<Long> getCharacterIds() {
         return characterIds;
     }
+
+    public void recordIllustration(String illustrationImagePath) {
+        this.illustrationImagePath = illustrationImagePath;
+    }
 }
