@@ -74,7 +74,7 @@ Backend gaps found while planning the frontend — these block FE screens, so th
 ## Milestone 7 — 6. Tests and docs
 - [x] #26 `[BE]` Backend tests: step ordering, progress, retry (per backend-rules
       skill §3)
-- [ ] #27 `[FE]` Frontend tests: a couple of components' loading/error/empty states
+- [x] #27 `[FE]` Frontend tests: a couple of components' loading/error/empty states
 - [x] #28 `[DOCS]` `TESTING.md`: strategy + a real test-run report
 - [x] #29 `[DOCS]` `README.md`: start/test commands, prerequisites, env vars,
       architecture overview
