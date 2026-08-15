@@ -46,9 +46,9 @@ Filter on GitHub: `gh issue list --repo DuyNguyen-3006/book-illustrator --label 
 ## Milestone 5 — 4. Pipeline steps (wire real Gemini calls one at a time, §2.3 research rule)
 - [x] #14 `[BE]` Step 1 — Style (user-provided or generated from text)
 - [x] #15 `[BE]` Step 2 — Characters, structured JSON, **max 2**, adults only
-- [ ] #16 `[BE]` Step 3 — Portraits, one image per character
+- [x] #16 `[BE]` Step 3 — Portraits, one image per character
 - [x] #17 `[BE]` Step 4 — Chapters, structured JSON, **max 1**, referencing characters
-- [ ] #18 `[BE]` Step 5 — Illustrations, one per chapter, reusing portraits for
+- [x] #18 `[BE]` Step 5 — Illustrations, one per chapter, reusing portraits for
       consistency
 - [x] #19 `[BE]` Context chaining: book text sent once, not resent per step; fill in
       `pipeline-rules SKILL.md` §5 once known
@@ -92,10 +92,6 @@ Backend gaps found while planning the frontend — these block FE screens, so th
       timestamps
 
 ---
-
-> Open on purpose: #16 Portraits and #18 Illustrations. Code and unit tests exist and
-> the request shape is validated by the API, but the account's image quota is zero, so no
-> image call has ever completed. See TESTING.md and DECISIONS.md §15.
 
 ## Quick counts
 - `[BE]` 19 · `[FE]` 8 · `[DOCS]` 3 · `[SETUP]` 6 · `[QA]` 2 (38 total)

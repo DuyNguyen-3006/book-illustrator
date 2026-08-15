@@ -15,11 +15,12 @@ reopened at any point without losing work or paying for the same step twice.
   containers, so no local JDK, Maven or Node is required.
 - **A Gemini API key** of your own: <https://ai.google.dev/gemini-api/docs>
 
-> **Note on image generation.** The Portraits and Illustrations steps call an image model.
-> On a free-tier key the image quota is zero (every Nano Banana model answers `429`, and the
-> Imagen models answer `404 no longer available to new users`), so those two steps cannot
-> complete without billing enabled on the Google account. The three text steps work on the
-> free tier. See `TESTING.md` for exactly what was verified live and what was not.
+> **Note on image generation.** The Portraits and Illustrations steps call an image model,
+> and the free tier's image quota is small and easy to exhaust: once it is gone, every Nano
+> Banana model answers `429` until it resets, and the Imagen models answer `404 no longer
+> available to new users`. All five steps have been run end to end against a real key. If
+> step 3 or 5 fails with "The AI service is busy", that is the quota, not the app: retry
+> later or enable billing.
 
 ## Start it
 
@@ -122,7 +123,7 @@ text and generated images are files on a mounted volume; the database stores the
 
 ## Known limitations
 
-- Image steps need a billed Google account (above).
+- Image steps depend on the free tier's image quota (above).
 - A backend restart clears sessions, since they are in-memory; pipeline state is unaffected
   and the UI sends the user back to sign in.
 - Local only, by the assessment's instruction. Do not deploy this publicly with a real key.
