@@ -92,12 +92,16 @@ where the interesting bugs were:
   `response_format.mime_type` (only `image/jpeg`), and the content array the text path
   sends is read as a turn_list where this model wants a step_list (#16).
 
-**Known gap, stated plainly:** image generation has never completed against this key. Every
-image model available to it answers `429` (the account's image quota is zero on the free
-tier) and the Imagen models answer `404 no longer available to new users`. The Portraits
-and Illustrations steps are therefore covered by unit tests and by the request shape being
-validated by the API, but the *response* parsing has not been confirmed live. #16 and #18
-stay open for that reason rather than being marked done.
+- The image path was blocked for two days by a `429`: this account's free-tier image quota
+  was exhausted, and the Imagen models answer `404 no longer available to new users`. Once
+  the quota reset, Portraits and Illustrations both completed end to end - real JPEGs
+  written to disk and served back through the API as `image/jpeg`. That also confirmed the
+  last assumption in the client: the image reply is nested in `steps[].content[]` as a
+  base64 `data` entry, since those bytes decode into valid ~1 MB images.
+
+The lesson worth keeping: for two days the honest status was "coded, unit-tested, request
+shape validated, response shape assumed", and that is what this file said rather than
+claiming the step worked.
 
 ## Manual QA against the running stack
 

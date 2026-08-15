@@ -484,3 +484,25 @@ where in-memory fakes cannot lie about it.
 I would not spend that day on features. A sixth pipeline step would fit the
 current shape without a rewrite, which was the point of the state machine; what
 the project actually lacks is proof for the parts a reviewer cannot run.
+
+---
+
+## 16. The image steps did finish, and the earlier entry stays as written
+
+Decision 15 says the image steps were deliberately left unfinished because no
+image call had ever completed. That was true when I wrote it and is no longer
+true: the account's free-tier image quota reset, and with the two request-shape
+fixes already in place (`image/jpeg`, step_list input) both Portraits and
+Illustrations ran end to end - real JPEGs on disk, served back through the API.
+The one assumption still outstanding in the client, that the image is nested in
+`steps[].content[]` as base64 `data`, is confirmed by the fact that those bytes
+decode into valid images.
+
+I am leaving decision 15 as it stands rather than editing it. Two days of "coded,
+unit-tested, request shape validated, response shape assumed" is the accurate
+record of where the project was, and rewriting it to look like the plan always
+worked would be the kind of tidy history this log exists to avoid.
+
+What actually unblocked it was time, not insight. What made it a five-minute job
+once the quota returned was that the two real bugs had already been found by
+reproducing the call by hand instead of waiting for quota to debug the shape.
