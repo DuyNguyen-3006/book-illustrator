@@ -2,7 +2,6 @@ package com.bookillustrator.application.usecase.pipeline;
 
 import com.bookillustrator.application.port.output.ProjectRepository;
 import com.bookillustrator.domain.entity.Project;
-import com.bookillustrator.domain.exception.IllegalPipelineStateException;
 import com.bookillustrator.domain.exception.ProjectNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -19,18 +18,21 @@ public class RunPipelineStepUseCase {
     private final RunCharactersStepUseCase runCharactersStepUseCase;
     private final RunPortraitsStepUseCase runPortraitsStepUseCase;
     private final RunChaptersStepUseCase runChaptersStepUseCase;
+    private final RunIllustrationsStepUseCase runIllustrationsStepUseCase;
 
     public RunPipelineStepUseCase(
             ProjectRepository projectRepository,
             RunStyleStepUseCase runStyleStepUseCase,
             RunCharactersStepUseCase runCharactersStepUseCase,
             RunPortraitsStepUseCase runPortraitsStepUseCase,
-            RunChaptersStepUseCase runChaptersStepUseCase) {
+            RunChaptersStepUseCase runChaptersStepUseCase,
+            RunIllustrationsStepUseCase runIllustrationsStepUseCase) {
         this.projectRepository = projectRepository;
         this.runStyleStepUseCase = runStyleStepUseCase;
         this.runCharactersStepUseCase = runCharactersStepUseCase;
         this.runPortraitsStepUseCase = runPortraitsStepUseCase;
         this.runChaptersStepUseCase = runChaptersStepUseCase;
+        this.runIllustrationsStepUseCase = runIllustrationsStepUseCase;
     }
 
     public PipelineStepResult execute(long projectId, long requestingUserId, String userProvidedStyle) {
@@ -43,8 +45,7 @@ public class RunPipelineStepUseCase {
             case CHARACTERS -> runCharactersStepUseCase.execute(projectId, requestingUserId);
             case PORTRAITS -> runPortraitsStepUseCase.execute(projectId, requestingUserId);
             case CHAPTERS -> runChaptersStepUseCase.execute(projectId, requestingUserId);
-            case ILLUSTRATIONS -> throw new IllegalPipelineStateException(
-                    "step " + project.getCurrentStep() + " isn't implemented yet");
+            case ILLUSTRATIONS -> runIllustrationsStepUseCase.execute(projectId, requestingUserId);
         };
     }
 }
